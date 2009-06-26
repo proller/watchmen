@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id$ $URL$ Oleg Alexeenkov <proller@gmail.com>
+# $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 
 =copyright
 
