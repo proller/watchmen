@@ -1,0 +1,47 @@
+#copy this file to watchcfg.pl and edit
+#cp watchcfg.pl.dist watchcfg.pl
+#
+# print("watchdog disabled from watchcfg.pl!\n"); exit;
+#
+# $config{log_all}=1; # full logging
+#
+#Disable wathing all default system services
+#%svc = ();
+#
+#define your service:
+#$svc{snmpd} = n(); #correct order
+#or
+#$svc{named} = {};
+#or with alternate ../rc.d/filename
+#$svc{icecast} = n(rcdname=>'icecast2');
+#or alternate process name
+#$svc{apache22} = n( process => 'httpd' );
+#... name in rc.conf
+#$svc{nmbd} = n( rcdname => 'samba', rcconfname => 'samba' );
+#
+#.. or add parametrs to default:
+#restart mysqld if memory usage > 2g
+#$svc{mysql}{max}{VSZ} = $svc{mysql}{max}{RSS} = 2_000_000;
+#
+#have no rc.conf vars:
+#$svc{communigate} = n(rcdname => 'CommuniGate.sh', process => 'CGServer', enabled => 1, restart=>0);
+#
+# check tcp port, than content
+#$svc{apache22} = n( process => 'httpd', http=>80, check=>'<html' );
+#
+#$svc{VeryComplexService} = n(
+#  enabled      => 1,
+#  'sleep'      => 30,
+#  restart      => 0, #no restart action in rc.d, using start..stop
+#  process      => 'VeryComplexService.20090209-1', #look in ps
+#  rcdname      => 'VeryComplexService.6234',
+#  tcp          => 6234, # try tcp connect port                   <--+
+#  http_host    => '723.542.718.592', # ip                           |
+#  http         => 8890, # try http connect port (can be other than tcp)
+#  http_method  => 'POST',
+#  http_path    => '/upload?login=VeryComplex&password=VeryComplexpassword',
+#  http_headers => { 'Content-Type' => 'application/x-www-form-urlencoded' },
+#  http_content => 'data=VeryComplexTest',
+#  http_code    => 200, # we want THIS code
+#  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
+#);
