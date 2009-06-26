@@ -7,12 +7,12 @@ watchmen - watch daemons
 
 =head1 SYNOPSIS
 
-watchmen.pl [--configkey=configvalue] [-svcname__svckey=svcvalue] ...
+ watchmen.pl [--configkey=configvalue] [-svcname__svckey=svcvalue] ...
 
 =head1 EXAMPLES
 
-watchmen.pl --log_all
-watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
+ watchmen.pl --log_all
+ watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
 
 
 =head1 INSTALL
@@ -23,21 +23,21 @@ recommended libs: LWP, URI
  perl -MCPAN -e "install LWP, URI"
 
 
-cp watchmen.pl /usr/local/bin/watchmen ; cp watchmen.conf.pl.dist /usr/local/etc/watchmen.conf.pl
-edit /usr/local/etc/watchmen.conf.pl
-add to crontab:
-echo "*       *       *       *       *       root    /usr/local/bin/watchmen" >> /etc/crontab
+ cp watchmen.pl /usr/local/bin/watchmen ; cp watchmen.conf.pl.dist /usr/local/etc/watchmen.conf.pl
+ edit /usr/local/etc/watchmen.conf.pl
+ add to crontab:
+ echo "*       *       *       *       *       root    /usr/local/bin/watchmen" >> /etc/crontab
 
 =head1 CONFIGURE
 
 
 =head1 TODO
-self pid & check
-mail errors
-various handlers
-rsync --daemon
-resort daemons (system, local)
-more default ports
+ self pid & check
+ mail errors
+ various handlers
+ rsync --daemon
+ resort daemons (system, local)
+ more default ports
 =cut
 use strict;
 use IO::Socket;
