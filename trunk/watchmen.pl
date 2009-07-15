@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 # $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
+package watchmen;
+use strict;
 sub get_params_one(@) {
   my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
   for (@_) {
@@ -96,8 +98,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-package watchmen;
-use strict;
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
