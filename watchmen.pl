@@ -252,6 +252,7 @@ sub alarmed {
   # log_all=>'+',
   log_default => '+' . ( $root_path =~ /watch/ ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
+  log_rc    => 0,
   log_enable  => 0,
   log_alive   => 0,
   log_info    => 0,
