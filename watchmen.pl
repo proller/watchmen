@@ -2,14 +2,16 @@
 # $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 package watchmen;
 use strict;
-sub get_params_one(@) { # WELCOME TO PERL
-  my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
+
+sub get_params_one(@) {    # WELCOME TO PERL %-)
+  local %_ = %{ ref $_[0] eq 'HASH' ? shift : {} };
   for (@_) {
-    tr/+/ /, s/%([a-f\d]{2})/pack'C',hex$1/gei
-      for my ( $k, $v ) = /^([^=]+=?)=(.+)$/ ? ( $1, $2 ) : ( (/^([^=]*)=?$/)[0], /^-/ );
-    $ret->{$k} = $v;
+    tr/+/ /, s/%([a-f\d]{2})/pack'C',hex$1/gei for my ( $k, $v ) = /^([^=]+=?)=(.+)$/ ? ( $1, $2 ) : ( /^([^=]*)=?$/, /^-/ );
+    #$_{"${1}_mode$2"} .= $3 if $k =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
+    #$k =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while defined $_{$k};
+    $_{$k} = $v;
   }
-  wantarray ? %$ret : $ret;
+  wantarray ? %_ : \%_;
 }
 
 =head1 NAME
