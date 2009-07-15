@@ -2,7 +2,7 @@
 # $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 package watchmen;
 use strict;
-sub get_params_one(@) {
+sub get_params_one(@) { # WELCOME TO PERL
   my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
   for (@_) {
     tr/+/ /, s/%([a-f\d]{2})/pack'C',hex$1/gei
