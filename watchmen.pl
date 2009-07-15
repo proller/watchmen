@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 # $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 
-
 =head1 NAME
 
  watchmen - watch daemons
@@ -74,8 +73,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-
-
 use strict;
 use IO::Socket;
 use Time::HiRes qw(time sleep);
@@ -95,13 +92,13 @@ BEGIN {
 }
 # lib funcs ===
 sub get_params_one(@) {
-  my $ret = (ref $_[0] eq 'HASH' ? shift : undef) || {};
+  my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
   for (@_) {
     local %_;
     @_{ 'k', 'v' } = (/^([^=]+=?)=(.+)$/) ? ( $1, $2 ) : ( ( (/^([^=]*)=?$/)[0] ), ( /^-/ ? 1 : '' ) );
     $_{$_} =~ tr/+/ /, $_{$_} =~ s/%([a-fA-F0-9]{2})/pack('C', hex($1))/eg for qw(k v);
-#    $ret->{ $1 . '_mode' . $2 } .= $3 if $_{'k'} =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
-#    $_{'k'} =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $_{'k'} } ) );
+    #    $ret->{ $1 . '_mode' . $2 } .= $3 if $_{'k'} =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
+    #    $_{'k'} =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $_{'k'} } ) );
     $ret->{ $_{'k'} } = $_{'v'};
   }
   return wantarray ? %$ret : $ret;
@@ -129,13 +126,9 @@ sub get_params(;$$) {    #v6
 
   sub file_append(;$@) {
     local $_ = shift;
-    for ( defined $_ ? $_ : keys %fh ) {
-      close( $fh{$_} ), delete( $fh{$_} ) if $fh{$_} and !@_;
-    }
+    for ( defined $_ ? $_ : keys %fh ) { close( $fh{$_} ), delete( $fh{$_} ) if $fh{$_} and !@_; }
     return if !@_;
-    unless ( $fh{$_} ) {
-      return unless open( $fh{$_}, '>>', $_ );
-    }
+    unless ( $fh{$_} ) { return unless open( $fh{$_}, '>>', $_ ); }
     print { $fh{$_} } @_;
     if ( time() > $savetime + 5 ) {
       close( $fh{$_} ), delete( $fh{$_} ) for keys %fh;
@@ -143,10 +136,7 @@ sub get_params(;$$) {    #v6
     }
     return @_;
   }
-
-  END {
-    close( $fh{$_} ) for keys %fh;
-  }
+  END { close( $fh{$_} ) for keys %fh; }
 }
 
 sub printlog (@) {    #v5
@@ -205,8 +195,7 @@ sub alarmed {
   my ( $timeout, $proc, @proc_param ) = @_;
   my $ret;
   eval {
-    local $SIG{ALRM} =
-      sub { die "alarm\n" }
+    local $SIG{ALRM} = sub { die "alarm\n" }
       if $timeout;    # NB: \n required
     alarm $timeout if $timeout;
     $ret = $proc->(@proc_param) if ref $proc eq 'CODE';
@@ -306,19 +295,15 @@ sub alarmed {
 for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}watchmen.conf.pl" ) {
   $config{config} ||= $_, last if -x;
 }
-
 {
-my $order = 100000;
-
-sub n(@) {
-  return { order => $order -= 10, @_ };
-}
+  my $order = 100000;
+  sub n(@) { return { order => $order -= 10, @_ }; }
 }
 %svc = (
-  sshd      => n( tcp => 22 , no_stop=>1),
-  syslogd   => n,
-  cron      => n,
-  inetd     => n,
+  sshd    => n( tcp => 22, no_stop => 1 ),
+  syslogd => n,
+  cron    => n,
+  inetd   => n,
   named     => n( udp => 53 ),
   lpd       => n,
   watchdogd => n,
@@ -354,12 +339,8 @@ sub n(@) {
   ipa        => n,
   tinyproxy  => n,         #tcp => 8888
 );
-if ( $config{config} ) {
-  do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" );
-} else {
-  printlog( 'info', "using default config because watchmen.conf.pl not exist" );
-}
-
+if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
+else                   { printlog( 'info', "using default config because watchmen.conf.pl not exist" ); }
 our %prog;
 
 sub param_to_config ($) {
@@ -373,37 +354,22 @@ sub param_to_config ($) {
     local @_ = split( /__/, $w ) or return 0;
     eval( $where . join( '', map { '{$_[' . $_ . ']}' } ( 0 .. $#_ ) ) . ' = $v;' );
   }
-
-  
   my $wantrun;
-for (@ARGV) {
-  next if /^-/;
-  ++$wantrun;
-  my ($p, $v) = get_params_one($_);
-  $prog{$p}{run} = 1;
-  $prog{$p}{opt} = $v;
-#printlog 'RUN', ($p, $v);
+  for (@ARGV) {
+    next if /^-/;
+    ++$wantrun;
+    my ( $p, $v ) = get_params_one($_);
+    $prog{$p}{run} = 1;
+    $prog{$p}{opt} = $v;
+    #printlog 'RUN', ($p, $v);
+  }
 }
-
-
-
-
-}
-
-sub config ($;$){
-  return $_[1]
-    ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] }
-    : $config{ $_[0] }
-}
+sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
 sub services() {
- sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } grep {$svc{$_}{enabled}}keys %svc
+  sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } grep { $svc{$_}{enabled} } keys %svc;
 }
-
-
-
 param_to_config( scalar get_params() );
-
 {
   my ( $current, $order );
 
@@ -412,293 +378,250 @@ param_to_config( scalar get_params() );
     return $prog{$current} unless $name;
     $prog{ $current = $name }{'order'} ||= ( $setorder or $order += ( $config{'order_step'} || 10 ) );
     return $prog{$current};
-  }    
+  }
 }
-
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
-
-for my $rcconf ( @{ $config{rcconf} } ) {
-  next unless open my $rcconfh, '<', $rcconf;
-  while (<$rcconfh>) {
-    if (/^\s*(\w+)_enable\s*=\s*"YES"/i) {
-      printlog( 'dbg', "rc.conf enabled [$1]" );
-      printlog( 'enabled', "$1" ), $svc{$1}{enabled} = 1, next if exists $svc{$1} and !length $svc{$1}{enabled};
-      printlog( 'enabled', "$_" ), $svc{$_}{enabled} = 1
-        for grep { $svc{$_}{rcconfname} eq $1 and !length $svc{$_}{enabled} } keys %svc;
+  for my $rcconf ( @{ $config{rcconf} } ) {
+    next unless open my $rcconfh, '<', $rcconf;
+    while (<$rcconfh>) {
+      if (/^\s*(\w+)_enable\s*=\s*"YES"/i) {
+        printlog( 'dbg', "rc.conf enabled [$1]" );
+        printlog( 'enabled', "$1" ), $svc{$1}{enabled} = 1, next if exists $svc{$1} and !length $svc{$1}{enabled};
+        printlog( 'enabled', "$_" ), $svc{$_}{enabled} = 1
+          for grep { $svc{$_}{rcconfname} eq $1 and !length $svc{$_}{enabled} } keys %svc;
+      }
     }
+    close $rcconfh;
   }
-  close $rcconfh;
-}
 };
-
 #setting defaults
 prog('defaults')->{force} = 1;
 prog()->{func} = sub {
-for my $s ( keys %svc ) {
-  $svc{$s}{$_} ||= $config{default}{$_} for keys %{ $config{default} };
-  next unless $svc{$s}{enabled};
-  $svc{$s}{process} ||= $s;
-  $svc{$s}{rcdname} ||= $s;
-  unless ( $svc{$s}{rcd} ) {
-    for my $rcd ( @{ $config{rcd} } ) {
-      last if $svc{$s}{rcd};
-      for my $rcdext ( @{ $config{rcdext} } ) {
-        if ( -x $rcd . $svc{$s}{rcdname} . $rcdext ) {
-          $svc{$s}{rcd} ||= $rcd . $svc{$s}{rcdname} . $rcdext;
-          last;
+  for my $s ( keys %svc ) {
+    $svc{$s}{$_} ||= $config{default}{$_} for keys %{ $config{default} };
+    next unless $svc{$s}{enabled};
+    $svc{$s}{process} ||= $s;
+    $svc{$s}{rcdname} ||= $s;
+    unless ( $svc{$s}{rcd} ) {
+      for my $rcd ( @{ $config{rcd} } ) {
+        last if $svc{$s}{rcd};
+        for my $rcdext ( @{ $config{rcdext} } ) {
+          if ( -x $rcd . $svc{$s}{rcdname} . $rcdext ) {
+            $svc{$s}{rcd} ||= $rcd . $svc{$s}{rcdname} . $rcdext;
+            last;
+          }
         }
       }
+      printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}] [$svc{$s}{rcdname}]" ), $svc{$s}{enabled} = 0
+        unless $svc{$s}{rcd};
+      #printlog('rcd', "$s detected [$svc{$s}{rcd}]");
     }
-    printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}] [$svc{$s}{rcdname}]" ), $svc{$s}{enabled} = 0
-      unless $svc{$s}{rcd};
-    #printlog('rcd', "$s detected [$svc{$s}{rcd}]");
+    $svc{$s}{start} ||= $svc{$s}{rcd} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start';
+    $svc{$s}{stop} ||= $svc{$s}{rcd} . ' stop';
+    $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart};
+    #  $svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
+    $svc{$s}{restart} ||= sub {
+      my $s = shift;
+      printlog( 'stop', $s );
+      `$svc{$s}{stop}`;
+      printlog( 'sleep', $s, $svc{$s}{sleep} );
+      sleep $svc{$s}{sleep};
+      printlog( 'start', $s );
+      `$svc{$s}{start}`;
+    };
+    $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
+    $svc{$s}{rcconf} ||= $s;
   }
-  $svc{$s}{start} ||= $svc{$s}{rcd} . ' '.($svc{$s}{force_restart}?'re':'').'start';
-  $svc{$s}{stop}    ||= $svc{$s}{rcd} . ' stop';
-  $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart};
-  #  $svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
-  $svc{$s}{restart} ||= sub {
-    my $s = shift;
-    printlog( 'stop', $s );
-    `$svc{$s}{stop}`;
-    printlog( 'sleep', $s, $svc{$s}{sleep} );
-    sleep $svc{$s}{sleep};
-    printlog( 'start', $s );
-    `$svc{$s}{start}`;
-  };
-  $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
-  $svc{$s}{rcconf} ||= $s;
-}
 };
-my (  %ps);
+my (%ps);
 prog('ps')->{force} = 1;
 prog()->{func} = sub {
-
-my @ps = `$config{ps}`;
-printlog( 'ps', @ps );
-local $_ = shift @ps;
-s/^\s+//;
-chomp;
-my @format = split /\s+/;
-my %format;
-my $i = 0;
-$format{$_} = $i++ for @format;
-#printlog 'fmt', @format;
-my $psline = 0;
-for (@ps) {
+  my @ps = `$config{ps}`;
+  printlog( 'ps', @ps );
+  local $_ = shift @ps;
   s/^\s+//;
   chomp;
-  local @_ = split /\s+/, $_, @format;
-  printlog( 'bad pid', join ':', @_ ), next unless $_[ $format{PID} ] =~ /^\d+$/;
-  my $ps = $ps{ $_[ $format{PID} ] } ||= {};
-  @{$ps}{@format} = @_;
-  $ps->{psline} = $psline++;
-  #'COMMAND' => 'proftpd: (accepting connections) (proftpd)',
-  #'COMMAND' => 'mc'
-  #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
-  # 'COMMAND' => 'screen -DRa',
-  $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
-  $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
-  $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^\S*/(\S+)};
-}
-#printlog 'newps', Dumper \%ps;
-
-    };
+  my @format = split /\s+/;
+  my %format;
+  my $i = 0;
+  $format{$_} = $i++ for @format;
+  #printlog 'fmt', @format;
+  my $psline = 0;
+  for (@ps) {
+    s/^\s+//;
+    chomp;
+    local @_ = split /\s+/, $_, @format;
+    printlog( 'bad pid', join ':', @_ ), next unless $_[ $format{PID} ] =~ /^\d+$/;
+    my $ps = $ps{ $_[ $format{PID} ] } ||= {};
+    @{$ps}{@format} = @_;
+    $ps->{psline} = $psline++;
+    #'COMMAND' => 'proftpd: (accepting connections) (proftpd)',
+    #'COMMAND' => 'mc'
+    #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
+    # 'COMMAND' => 'screen -DRa',
+    $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
+    $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
+    $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^\S*/(\S+)};
+  }
+  #printlog 'newps', Dumper \%ps;
+};
 #prog('process')->{force} = 1;
 #prog()->{func} = sub {
 prog('check')->{func} = sub {
-
-
-for my $s ( services ) {
-  #for my $s ( keys %svc ) {
-#  next unless $svc{$s}{enabled};
-  printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}]" ), next if !$svc{$s}{rcd} or !-x $svc{$s}{rcd};
-  printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
-  my $founded;
-  for my $p ( grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps ) {
-    for my $max ( grep { $svc{$s}{max}{$_} } keys %{ $svc{$s}{max} || {} } ) {
-      #printlog('dev', "look at $s limit [$max]", $svc{$s}{max}{$max} , $ps{$p}{$max});
-      printlog( 'warn', "$s limit [$max]", $ps{$p}{$max}, '>', $svc{$s}{max}{$max} ), $svc{$s}{action} = 'restart'
-        if $ps{$p}{$max} > $svc{$s}{max}{$max};
+  for my $s (services) {
+    #for my $s ( keys %svc ) {
+    #  next unless $svc{$s}{enabled};
+    printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}]" ), next if !$svc{$s}{rcd} or !-x $svc{$s}{rcd};
+    printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
+    my $founded;
+    for my $p ( grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps ) {
+      for my $max ( grep { $svc{$s}{max}{$_} } keys %{ $svc{$s}{max} || {} } ) {
+        #printlog('dev', "look at $s limit [$max]", $svc{$s}{max}{$max} , $ps{$p}{$max});
+        printlog( 'warn', "$s limit [$max]", $ps{$p}{$max}, '>', $svc{$s}{max}{$max} ), $svc{$s}{action} = 'restart'
+          if $ps{$p}{$max} > $svc{$s}{max}{$max};
+      }
+      ++$founded;
     }
-    ++$founded;
-  }
-  #  printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
-  unless ($founded) {
-    printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
-    $svc{$s}{action} ||= 'start';
-  } elsif ( $founded < $svc{$s}{min_proc} ) {
-    printlog( 'warn', "$s min_proc[$founded/$svc{$s}{min_proc}]!" );    #restart
-    $svc{$s}{action} ||= 'restart';
-  } elsif ( $founded > $svc{$s}{max_proc} ) {
-    printlog( 'warn', "$s max_proc[$founded/$svc{$s}{max_proc}]!" );    #restart
-    $svc{$s}{action} ||= 'restart';
-  }
-}
-#};
-#prog('service')->{force} = 1;
-#prog()->{func} = sub {
-
-for my $s ( services  ) {
-#  next unless $svc{$s}{enabled};
-  for my $prot (qw(tcp udp)) {
-    $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
-    next unless $svc{$s}{$prot};
-    next if $svc{$s}{action};
-    for my $port ( ref $svc{$s}{$prot} eq 'ARRAY' ? @{ $svc{$s}{$prot} } : $svc{$s}{$prot} ) {
-      printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
-      my $time   = time();
-      my $socket = new IO::Socket::INET(
-        'PeerAddr' => $svc{$s}{host},
-        'PeerPort' => $port,
-        'Proto'    => $prot,
-        'Timeout'  => $svc{$s}{timeout},
-      );
-      $time = human( 'time_period', time() - $time );
-      printlog( 'port', "connected per", $time ), next if $socket;
-      printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
+    #  printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
+    unless ($founded) {
+      printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
+      $svc{$s}{action} ||= 'start';
+    } elsif ( $founded < $svc{$s}{min_proc} ) {
+      printlog( 'warn', "$s min_proc[$founded/$svc{$s}{min_proc}]!" );    #restart
       $svc{$s}{action} ||= 'restart';
-      last;
+    } elsif ( $founded > $svc{$s}{max_proc} ) {
+      printlog( 'warn', "$s max_proc[$founded/$svc{$s}{max_proc}]!" );    #restart
+      $svc{$s}{action} ||= 'restart';
     }
   }
-  for my $prot (qw(http https)) {
-    next unless $svc{$s}{$prot};
-    next if $svc{$s}{action};
-  PORTOK: for my $port ( ref $svc{$s}{$prot} eq 'ARRAY' ? @{ $svc{$s}{$prot} } : $svc{$s}{$prot} ) {
-      $port = 80  if $port == 1 and $prot eq 'http';
-      $port = 443 if $port == 1 and $prot eq 'https';
-      printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
-      my $time = time();
-      #lwp here
-      printlog( 'err', 'no libs LWP, URI' ), last unless ( eval('use LWP::UserAgent; use URI::URL;1;') );
-      my $ua = LWP::UserAgent->new(
-        'timeout' => config( $s, 'timeout' ),
-        %{ config( $s, 'lwp' ) || {} },
-      );
-      my $get =
-          'http://'
-        . ( config( $s, 'http_host' ) || config( $s, 'host' ) || 'localhost' ) . ':'
-        . $port
-        . config( $s, 'http_path' );
-      my $resp =    #(
-        $ua->request(
-        new HTTP::Request(
-          config( $s, 'http_method' ) || 'GET',
-          new URI::URL($get),
-          new HTTP::Headers(
-            'User-Agent' => config( $s, 'http_useragent' ),
-            %{ config( $s, 'http_headers' ) || {} }
-          ),
-          config( $s, 'http_content' )
-        )
-        )
-        #    )
-        ;
-      my $result = $resp->is_success ? $resp->as_string : undef;
-      printlog( 'http', 'recv', $get, ':', $result );
-      #printlog('dbg', $resp->code(), Dumper $resp);
-      my $code = config( $s, 'http_code' );
-      if ($code) {
-        local $_ = $resp->code();
-        printlog( 'http', "code recv [$_], want [$code]", ref $code );
-        my $code_ok;
-        if ( ref $code eq 'Regexp' ) {
-          ++$code_ok if $_ =~ $code;
+  #};
+  #prog('service')->{force} = 1;
+  #prog()->{func} = sub {
+  for my $s (services) {
+    #  next unless $svc{$s}{enabled};
+    for my $prot (qw(tcp udp)) {
+      $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
+      next unless $svc{$s}{$prot};
+      next if $svc{$s}{action};
+      for my $port ( ref $svc{$s}{$prot} eq 'ARRAY' ? @{ $svc{$s}{$prot} } : $svc{$s}{$prot} ) {
+        printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
+        my $time   = time();
+        my $socket = new IO::Socket::INET(
+          'PeerAddr' => $svc{$s}{host},
+          'PeerPort' => $port,
+          'Proto'    => $prot,
+          'Timeout'  => $svc{$s}{timeout},
+        );
+        $time = human( 'time_period', time() - $time );
+        printlog( 'port', "connected per", $time ), next if $socket;
+        printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
+        $svc{$s}{action} ||= 'restart';
+        last;
+      }
+    }
+    for my $prot (qw(http https)) {
+      next unless $svc{$s}{$prot};
+      next if $svc{$s}{action};
+    PORTOK: for my $port ( ref $svc{$s}{$prot} eq 'ARRAY' ? @{ $svc{$s}{$prot} } : $svc{$s}{$prot} ) {
+        $port = 80  if $port == 1 and $prot eq 'http';
+        $port = 443 if $port == 1 and $prot eq 'https';
+        printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
+        my $time = time();
+        #lwp here
+        printlog( 'err', 'no libs LWP, URI' ), last unless ( eval('use LWP::UserAgent; use URI::URL;1;') );
+        my $ua = LWP::UserAgent->new( 'timeout' => config( $s, 'timeout' ), %{ config( $s, 'lwp' ) || {} }, );
+        my $get =
+            'http://'
+          . ( config( $s, 'http_host' ) || config( $s, 'host' ) || 'localhost' ) . ':'
+          . $port
+          . config( $s, 'http_path' );
+        my $resp =    #(
+          $ua->request(
+          new HTTP::Request(
+            config( $s, 'http_method' ) || 'GET',
+            new URI::URL($get),
+            new HTTP::Headers( 'User-Agent' => config( $s, 'http_useragent' ), %{ config( $s, 'http_headers' ) || {} } ),
+            config( $s, 'http_content' )
+          )
+          )
+          #    )
+          ;
+        my $result = $resp->is_success ? $resp->as_string : undef;
+        printlog( 'http', 'recv', $get, ':', $result );
+        #printlog('dbg', $resp->code(), Dumper $resp);
+        my $code = config( $s, 'http_code' );
+        if ($code) {
+          local $_ = $resp->code();
+          printlog( 'http', "code recv [$_], want [$code]", ref $code );
+          my $code_ok;
+          if   ( ref $code eq 'Regexp' ) { ++$code_ok if $_ =~ $code; }
+          else                           { ++$code_ok if $_ =~ /$code/; }
+          #          printlog( 'warn', 'http code, recv', $_, ', want ', $code, "[$code_ok]");
+          unless ($code_ok) {
+            printlog( 'warn', 'no good http code, recv', $_, ', want ', $code, "[$code_ok]" );
+            $svc{$s}{action} ||= 'restart';
+            last;
+          }
+        }
+        $time = human( 'time_period', time() - $time );
+        #!      printlog( 'port', "connected per", $time ), next if $socket;
+        #!      printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
+        my $check = $svc{$s}{ $prot . '_check' };
+        my @check;
+        if ( ref $check eq 'CODE' ) { next if $check->($result) }
+        elsif ($check) {
+          if   ( ref $check eq 'ARRAY' ) { @check = @$check }
+          else                           { @check = $check; }
+          for my $check (@check) {
+            $check = qr/\Q$check/ if ref $check ne 'Regexp';
+            next PORTOK if $result =~ $check;
+          }
+          printlog( 'restart', 'no', $check, ' in ', $result );
         } else {
-          ++$code_ok if $_ =~ /$code/;
+          next;
         }
-        #          printlog( 'warn', 'http code, recv', $_, ', want ', $code, "[$code_ok]");
-        unless ($code_ok) {
-          printlog( 'warn', 'no good http code, recv', $_, ', want ', $code, "[$code_ok]" );
-          $svc{$s}{action} ||= 'restart';
-          last;
-        }
+        $svc{$s}{action} ||= 'restart';
+        last;
       }
-      $time = human( 'time_period', time() - $time );
-      #!      printlog( 'port', "connected per", $time ), next if $socket;
-      #!      printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
-      my $check = $svc{$s}{ $prot . '_check' };
-      my @check;
-      if ( ref $check eq 'CODE' ) { next if $check->($result) }
-      elsif ($check) {
-        if ( ref $check eq 'ARRAY' ) { @check = @$check }
-        else {
-          @check = $check;
-        }
-        for my $check (@check) {
-          $check = qr/\Q$check/
-            if ref $check ne 'Regexp';
-          next PORTOK if $result =~ $check;
-        }
-        printlog( 'restart', 'no', $check, ' in ', $result );
-      } else {
-        next;
-      }
-      $svc{$s}{action} ||= 'restart';
-      last;
     }
+    #  printlog( 'action', $s, $svc{$a}{action}, );
+    $svc{$s}{action} ||= $svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
+    next unless $svc{$s}{action};
+    printlog(
+      'action', $s,
+      $svc{$s}{action},
+      $svc{$s}{ $svc{$s}{action} },
+      alarmed(
+        $config{maxexttime},
+        sub {
+          ref $svc{$s}{ $svc{$s}{action} } eq 'CODE'
+            ? $svc{$s}{ $svc{$s}{action} }->( $s, $svc{$s}{action} )
+            : `$svc{$s}{$svc{$s}{action}}`;
+        }
+      )
+    ) if $svc{$s}{ $svc{$s}{action} };
   }
-  #  printlog( 'action', $s, $svc{$a}{action}, );
-
-  $svc{$s}{action}||=$svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
-  
-  next unless $svc{$s}{action};
-  printlog(
-    'action', $s,
-    $svc{$s}{action},
-    $svc{$s}{ $svc{$s}{action} },
-    alarmed(
-      $config{maxexttime},
-      sub {
-        ref $svc{$s}{ $svc{$s}{action} } eq 'CODE'
-          ? $svc{$s}{ $svc{$s}{action} }->( $s, $svc{$s}{action} )
-          : `$svc{$s}{$svc{$s}{action}}`;
-      }
-    )
-  ) if $svc{$s}{ $svc{$s}{action} };
-}
-
 };
 #printlog 'dump', Dumper( \%config, \%svc, $root_path );
-
-
-prog('stop')->{func} = sub {
-
+prog('stop')->{func}    = sub { };
+prog('restart')->{func} = sub { };
+prog('list')->{func}    = sub {
+  $config{log_all} = 1;
+  printlog 'list', services;
 };
-
-prog('restart')->{func} = sub {
-
-};
-
-prog('list')->{func} = sub {
-$config{log_all}=1;
-printlog 'list', services;
-
-};
-
 prog('avail')->{func} = sub {
-$config{log_all}=1;
-printlog 'list', sort keys %svc;
-
+  $config{log_all} = 1;
+  printlog 'list', sort keys %svc;
 };
-
 prog('help')->{func} = sub {
-$config{log_all}=1;
-printlog 'list', services;
-
+  $config{log_all} = 1;
+  printlog 'list', services;
 };
-
-
-
 prog('check')->{force} = 1 unless grep $prog{$_}{run}, keys %prog;
-for my $prog (sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog) {
-
-#next unless $prog{$prog}{run} || (!$wantrun and $prog{$prog}{force});
-next unless $prog{$prog}{run} ||  $prog{$prog}{force};
-#printlog 'run', $prog;
-
-$prog{$prog}{func}->($prog{$prog}{opt}) if ref $prog{$prog}{func} eq 'CODE';
-
+for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
+  #next unless $prog{$prog}{run} || (!$wantrun and $prog{$prog}{force});
+  next unless $prog{$prog}{run} || $prog{$prog}{force};
+  #printlog 'run', $prog;
+  $prog{$prog}{func}->( $prog{$prog}{opt} ) if ref $prog{$prog}{func} eq 'CODE';
 }
-
