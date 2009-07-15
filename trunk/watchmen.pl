@@ -1,5 +1,14 @@
 #!/usr/bin/perl
 # $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
+sub get_params_one(@) {
+  my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
+  for (@_) {
+    tr/+/ /, s/%([a-f\d]{2})/pack'C',hex$1/gei
+      for my ( $k, $v ) = /^([^=]+=?)=(.+)$/ ? ( $1, $2 ) : ( (/^([^=]*)=?$/)[0], /^-/ );
+    $ret->{$k} = $v;
+  }
+  wantarray ? %$ret : $ret;
+}
 
 =head1 NAME
 
@@ -103,20 +112,7 @@ BEGIN {
   ( $root_path = ( $1 || getcwd ) . '/' ) =~ tr|\\|/|;
 }
 # lib funcs ===
-sub get_params_one(@) {    # p=x,p=y,p=z => p=x,p1=y,p2=z ; p>=z => p=z, p_mode='>'; p => p; -p => -p=1;
-  my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
-  for (@_) {
-    my ( $k, $v );         # PERL RULEZ # SORRY # 8-) #
-    tr/+/ /, s/%([a-f\d]{2})/pack 'C', hex $1/gei
-      for ( $k, $v ) = /^([^=]+=?)=(.+)$/ ? ( $1, $2 ) : ( (/^([^=]*)=?$/)[0], /^-/ );
-    #$ret->{"${1}_mode$2"} .= $3 if $k =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
-    #$k =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while defined $ret->{$k};
-    $ret->{$k} = $v;       #lc can be here
-  }
-  return wantarray ? %$ret : $ret;
-}
-
-sub get_params(;$$) {      #v6
+sub get_params(;$$) {                                        #v6
   my ( $par_string, $delim ) = @_;
   $delim ||= '&';
   local %_;
@@ -124,13 +120,13 @@ sub get_params(;$$) {      #v6
   %_ = (
     %_,
     $par_string
-    ? ( get_params_one( undef, split( $delim, $par_string ) ) )
+    ? get_params_one( split $delim, $par_string )
     : (
-      get_params_one( undef, @ARGV ), map { get_params_one( undef, split $delim, $_ ) } split( /;\s*/, $ENV{'HTTP_COOKIE'} ),
-      $ENV{'QUERY_STRING'}, $_
+      get_params_one(@ARGV), map { get_params_one split $delim, $_ } split( /;\s*/, $ENV{'HTTP_COOKIE'} ),
+      $ENV{'QUERY_STRING'},  $_
     )
   );
-  return wantarray ? %_ : \%_;
+  wantarray ? %_ : \%_;
 }
 {
   my %fh;
@@ -374,7 +370,7 @@ sub param_to_config ($) {
     my ( $p, $v ) = get_params_one($_);
     $prog{$p}{run} = 1;
     $prog{$p}{opt} = $v;
-    #    printlog 'RUN', ($p, $v);
+    printlog 'RUN', ( $p, $v );
   }
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
