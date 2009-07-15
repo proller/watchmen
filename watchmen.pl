@@ -107,10 +107,10 @@ sub get_params_one(@) {    # p=x,p=y,p=z => p=x,p1=y,p2=z ; p>=z => p=z, p_mode=
   my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
   for (@_) {
     my ( $k, $v );         # PERL RULEZ # SORRY # 8-) #
-    tr/+/ /, s/%([a-f\d]{2})/pack('C', hex($1))/egi
-      for ( $k, $v ) = (/^([^=]+=?)=(.+)$/) ? ( $1, $2 ) : ( ( (/^([^=]*)=?$/)[0] ), /^-/ );
-    #$ret->{ $1 . '_mode' . $2 } .= $3 if $k =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
-    #$k =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $k } ) );
+    tr/+/ /, s/%([a-f\d]{2})/pack 'C', hex $1/gei
+      for ( $k, $v ) = /^([^=]+=?)=(.+)$/ ? ( $1, $2 ) : ( (/^([^=]*)=?$/)[0], /^-/ );
+    #$ret->{"${1}_mode$2"} .= $3 if $k =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
+    #$k =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while defined $ret->{$k};
     $ret->{$k} = $v;       #lc can be here
   }
   return wantarray ? %$ret : $ret;
