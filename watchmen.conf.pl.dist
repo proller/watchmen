@@ -11,7 +11,11 @@
 #define your service:
 #$svc{snmpd} = n(); #correct order
 #or
-#$svc{named} = {};
+#$svc{named} = {
+# Your custom check, example:
+#  check=>sub {   for(`nslookup ya.ru $svc{named}{host}`) {return undef if /213.180.204.8|77.88.21.8|93.158.134.8/} return 'restart' "}
+#};
+#
 #or with alternate ../rc.d/filename
 #$svc{icecast} = n(rcdname=>'icecast2');
 #or alternate process name

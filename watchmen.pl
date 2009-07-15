@@ -12,9 +12,20 @@
 
 =head1 EXAMPLES
 
- watchmen.pl --log_all
- watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
+ # check and restart default services
+ watchmen.pl
 
+ #list of enabled services
+ watchmen.pl list
+
+ #list of available services
+ watchmen.pl avail
+
+ # full log
+ watchmen.pl --log_all
+
+ # reatart apache if more than 5 httpd proc, dont check sshd, load custom config
+ watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
 
 =head1 INSTALL
 
@@ -32,6 +43,7 @@
 
 =head1 CONFIGURE
 
+ by default some of default services enabled
 
 =head1 TODO
 
@@ -83,13 +95,13 @@ BEGIN {
 }
 # lib funcs ===
 sub get_params_one(@) {
-  my $ret = shift || {};
+  my $ret = (ref $_[0] eq 'HASH' ? shift : undef) || {};
   for (@_) {
     local %_;
     @_{ 'k', 'v' } = (/^([^=]+=?)=(.+)$/) ? ( $1, $2 ) : ( ( (/^([^=]*)=?$/)[0] ), ( /^-/ ? 1 : '' ) );
     $_{$_} =~ tr/+/ /, $_{$_} =~ s/%([a-fA-F0-9]{2})/pack('C', hex($1))/eg for qw(k v);
-    $ret->{ $1 . '_mode' . $2 } .= $3 if $_{'k'} =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
-    $_{'k'} =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $_{'k'} } ) );
+#    $ret->{ $1 . '_mode' . $2 } .= $3 if $_{'k'} =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
+#    $_{'k'} =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $_{'k'} } ) );
     $ret->{ $_{'k'} } = $_{'v'};
   }
   return wantarray ? %$ret : $ret;
@@ -294,13 +306,16 @@ sub alarmed {
 for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}watchmen.conf.pl" ) {
   $config{config} ||= $_, last if -x;
 }
-our $order = 100000;
+
+{
+my $order = 100000;
 
 sub n(@) {
   return { order => $order -= 10, @_ };
 }
+}
 %svc = (
-  sshd      => n( tcp => 22 ),
+  sshd      => n( tcp => 22 , no_stop=>1),
   syslogd   => n,
   cron      => n,
   inetd     => n,
@@ -345,6 +360,8 @@ if ( $config{config} ) {
   printlog( 'info', "using default config because watchmen.conf.pl not exist" );
 }
 
+our %prog;
+
 sub param_to_config ($) {
   my ($param) = @_;
   for my $w ( keys %$param ) {
@@ -356,8 +373,51 @@ sub param_to_config ($) {
     local @_ = split( /__/, $w ) or return 0;
     eval( $where . join( '', map { '{$_[' . $_ . ']}' } ( 0 .. $#_ ) ) . ' = $v;' );
   }
+
+  
+  my $wantrun;
+for (@ARGV) {
+  next if /^-/;
+  ++$wantrun;
+  my ($p, $v) = get_params_one($_);
+  $prog{$p}{run} = 1;
+  $prog{$p}{opt} = $v;
+#printlog 'RUN', ($p, $v);
 }
+
+
+
+
+}
+
+sub config ($;$){
+  return $_[1]
+    ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] }
+    : $config{ $_[0] }
+}
+
+sub services() {
+ sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } grep {$svc{$_}{enabled}}keys %svc
+}
+
+
+
 param_to_config( scalar get_params() );
+
+{
+  my ( $current, $order );
+
+  sub prog(;$$) {
+    my ( $name, $setorder ) = @_;
+    return $prog{$current} unless $name;
+    $prog{ $current = $name }{'order'} ||= ( $setorder or $order += ( $config{'order_step'} || 10 ) );
+    return $prog{$current};
+  }    
+}
+
+prog('loadrc')->{force} = 1;
+prog()->{func} = sub {
+
 for my $rcconf ( @{ $config{rcconf} } ) {
   next unless open my $rcconfh, '<', $rcconf;
   while (<$rcconfh>) {
@@ -370,6 +430,11 @@ for my $rcconf ( @{ $config{rcconf} } ) {
   }
   close $rcconfh;
 }
+};
+
+#setting defaults
+prog('defaults')->{force} = 1;
+prog()->{func} = sub {
 for my $s ( keys %svc ) {
   $svc{$s}{$_} ||= $config{default}{$_} for keys %{ $config{default} };
   next unless $svc{$s}{enabled};
@@ -405,12 +470,11 @@ for my $s ( keys %svc ) {
   $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
   $svc{$s}{rcconf} ||= $s;
 }
+};
+my (  %ps);
+prog('ps')->{force} = 1;
+prog()->{func} = sub {
 
-sub config {
-  return $_[1]
-    ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] }
-    : $config{ $_[0] };
-}
 my @ps = `$config{ps}`;
 printlog( 'ps', @ps );
 local $_ = shift @ps;
@@ -421,7 +485,6 @@ my %format;
 my $i = 0;
 $format{$_} = $i++ for @format;
 #printlog 'fmt', @format;
-our %ps;
 my $psline = 0;
 for (@ps) {
   s/^\s+//;
@@ -433,16 +496,23 @@ for (@ps) {
   $ps->{psline} = $psline++;
   #'COMMAND' => 'proftpd: (accepting connections) (proftpd)',
   #'COMMAND' => 'mc'
-  #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/proiskt/*.MYI 2>&1'
+  #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
   # 'COMMAND' => 'screen -DRa',
   $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
   $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
   $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^\S*/(\S+)};
 }
 #printlog 'newps', Dumper \%ps;
-for my $s ( sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc ) {
+
+    };
+#prog('process')->{force} = 1;
+#prog()->{func} = sub {
+prog('check')->{func} = sub {
+
+
+for my $s ( services ) {
   #for my $s ( keys %svc ) {
-  next unless $svc{$s}{enabled};
+#  next unless $svc{$s}{enabled};
   printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}]" ), next if !$svc{$s}{rcd} or !-x $svc{$s}{rcd};
   printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
   my $founded;
@@ -466,8 +536,12 @@ for my $s ( sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc 
     $svc{$s}{action} ||= 'restart';
   }
 }
-for my $s ( sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc ) {
-  next unless $svc{$s}{enabled};
+#};
+#prog('service')->{force} = 1;
+#prog()->{func} = sub {
+
+for my $s ( services  ) {
+#  next unless $svc{$s}{enabled};
   for my $prot (qw(tcp udp)) {
     $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
     next unless $svc{$s}{$prot};
@@ -566,6 +640,9 @@ for my $s ( sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc 
     }
   }
   #  printlog( 'action', $s, $svc{$a}{action}, );
+
+  $svc{$s}{action}||=$svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
+  
   next unless $svc{$s}{action};
   printlog(
     'action', $s,
@@ -581,4 +658,47 @@ for my $s ( sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc 
     )
   ) if $svc{$s}{ $svc{$s}{action} };
 }
+
+};
 #printlog 'dump', Dumper( \%config, \%svc, $root_path );
+
+
+prog('stop')->{func} = sub {
+
+};
+
+prog('restart')->{func} = sub {
+
+};
+
+prog('list')->{func} = sub {
+$config{log_all}=1;
+printlog 'list', services;
+
+};
+
+prog('avail')->{func} = sub {
+$config{log_all}=1;
+printlog 'list', sort keys %svc;
+
+};
+
+prog('help')->{func} = sub {
+$config{log_all}=1;
+printlog 'list', services;
+
+};
+
+
+
+prog('check')->{force} = 1 unless grep $prog{$_}{run}, keys %prog;
+for my $prog (sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog) {
+
+#next unless $prog{$prog}{run} || (!$wantrun and $prog{$prog}{force});
+next unless $prog{$prog}{run} ||  $prog{$prog}{force};
+#printlog 'run', $prog;
+
+$prog{$prog}{func}->($prog{$prog}{opt}) if ref $prog{$prog}{func} eq 'CODE';
+
+}
+
