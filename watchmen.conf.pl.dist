@@ -9,7 +9,7 @@
 #%svc = ();
 #
 #define your service:
-#$svc{snmpd} = n(); #correct order
+#$svc{snmpd} = n(); #correct order, process named "snmpd", correct [/usr/local]/etc/rc.d/snmpd
 #or
 #$svc{named} = {
 # Your custom check, example:
@@ -26,16 +26,18 @@
 #.. or add parametrs to default:
 #restart mysqld if memory usage > 2g
 #$svc{mysql}{max}{VSZ} = $svc{mysql}{max}{RSS} = 2_000_000;
+#or
+#%{$svc{mysql}} = (%{$svc{mysql}}, max=>{map {$_=>2_000_000} qw(VSZ RSS)});
 #
+#check port, code than custom content:
+#$svc{apache22}{http_check}='<html';
+#%{$svc{nginx}} = (%{$svc{nginx}}, http_check=>'<html' );
 #have no rc.conf vars, no restart:
-#$svc{communigate} = n(rcdname => 'CommuniGate.sh', process => 'CGServer', enabled => 1, restart=>0);
-#
-#check tcp port, than content:
-#$svc{apache22} = n( process => 'httpd', http=>80, check=>'<html' );
+#$svc{communigate} = n(rcdname => 'CommuniGate.sh', process => 'CGServer', enable => 1, restart=>0);
 #
 #
 #$svc{VeryComplexService} = n(
-#  enabled      => 1,
+#  enable      => 1,
 #  'sleep'      => 30, # in restart sleep betwen start and stop (this service have very slow shutdown)
 #  restart      => 0, #no restart action in rc.d, using start..stop
 #  process      => 'VeryComplexService.20090209-1', #look in ps
@@ -50,3 +52,4 @@
 #  http_code    => 200, # we want THIS code
 #  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
 #);
+1;
