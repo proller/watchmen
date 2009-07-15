@@ -100,26 +100,23 @@ our $root_path;
 
 BEGIN {
   ( $ENV{'SCRIPT_FILENAME'} || $0 ) =~ m|^(.+)[/\\].+?$|;    #v0w
-  $root_path = $1 if $1;
-  $root_path ||= getcwd;
-  $root_path .= '/';
-  $root_path =~ s|\\|/|g;
+  ( $root_path = ( $1 || getcwd ) . '/' ) =~ tr|\\|/|;
 }
 # lib funcs ===
-sub get_params_one(@) {
+sub get_params_one(@) {    # p=x,p=y,p=z => p=x,p1=y,p2=z ; p>=z => p=z, p_mode='>'; p => p; -p => -p=1;
   my $ret = ( ref $_[0] eq 'HASH' ? shift : undef ) || {};
   for (@_) {
-    local %_;
-    @_{ 'k', 'v' } = (/^([^=]+=?)=(.+)$/) ? ( $1, $2 ) : ( ( (/^([^=]*)=?$/)[0] ), ( /^-/ ? 1 : '' ) );
-    $_{$_} =~ tr/+/ /, $_{$_} =~ s/%([a-fA-F0-9]{2})/pack('C', hex($1))/eg for qw(k v);
-    #    $ret->{ $1 . '_mode' . $2 } .= $3 if $_{'k'} =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
-    #    $_{'k'} =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $_{'k'} } ) );
-    $ret->{ $_{'k'} } = $_{'v'};
+    my ( $k, $v );         # PERL RULEZ # SORRY # 8-) #
+    tr/+/ /, s/%([a-f\d]{2})/pack('C', hex($1))/egi
+      for ( $k, $v ) = (/^([^=]+=?)=(.+)$/) ? ( $1, $2 ) : ( ( (/^([^=]*)=?$/)[0] ), /^-/ );
+    #$ret->{ $1 . '_mode' . $2 } .= $3 if $k =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
+    #$k =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while ( defined( $ret->{ $k } ) );
+    $ret->{$k} = $v;       #lc can be here
   }
   return wantarray ? %$ret : $ret;
 }
 
-sub get_params(;$$) {    #v6
+sub get_params(;$$) {      #v6
   my ( $par_string, $delim ) = @_;
   $delim ||= '&';
   local %_;
@@ -377,7 +374,7 @@ sub param_to_config ($) {
     my ( $p, $v ) = get_params_one($_);
     $prog{$p}{run} = 1;
     $prog{$p}{opt} = $v;
-    #printlog 'RUN', ($p, $v);
+    #    printlog 'RUN', ($p, $v);
   }
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
@@ -635,7 +632,7 @@ prog('list')->{func}    = sub {
 };
 prog('avail')->{func} = sub {
   $config{log_all} = 1;
-  printlog 'list', sort keys %svc;
+  printlog 'list', @_, ':', sort keys %svc;
 };
 prog('help')->{func} = sub {
   $config{log_all} = 1;
