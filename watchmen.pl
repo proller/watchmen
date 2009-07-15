@@ -64,7 +64,7 @@
  mail errors
  various handlers
  rsync --daemon
- resort daemons (system, local)
+ resort daemons with rcorder (system, local)
  more default ports
 
 =head1 COPYRIGHT
@@ -86,6 +86,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
+
 package watchmen;
 use strict;
 use IO::Socket;
@@ -256,7 +257,7 @@ sub alarmed {
   # log_all=>'+',
   log_default => '+' . ( $root_path =~ /watch/ ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
-  log_enable => 0,
+  log_enable  => 0,
   log_alive   => 0,
   log_info    => 0,
   log_ps      => 0,
@@ -325,10 +326,10 @@ for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}w
   apache     => n( process => 'httpd',    http => 80 ),
   apache2    => n( process => 'httpd',    http => 80 ),
   apache22   => n( process => 'httpd',    http => 80 ),     #tcp=>80 #https=>443
-  nginx	     => n(http => 80),
-  postgresql => n( process => 'postgres', tcp => 5432 ),
+  nginx      => n( http    => 80 ),
+  postgresql => n( process => 'postgres', tcp  => 5432 ),
   memcached  => n,
-  rsyncd     => n( process => 'rsync',    tcp => 873 ),
+  rsyncd     => n( process => 'rsync',    tcp  => 873 ),
   proftpd    => n,
   mysql    => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
   dhcpd    => n( rcdname => 'isc-dhcpd',    udp     => 67 ),
@@ -382,9 +383,8 @@ sub param_to_config ($) {
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
 sub services() {
-  sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } grep { $svc{$_}{enable}
-and  $svc{$_}{rcd} and -x $svc{$_}{rcd} 
-   } keys %svc;
+  sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b }
+    grep { $svc{$_}{enable} and $svc{$_}{rcd} and -x $svc{$_}{rcd} } keys %svc;
 }
 param_to_config( scalar get_params() );
 {
@@ -402,24 +402,20 @@ prog()->{func} = sub {
   for my $rcconf ( @{ $config{rcconf} } ) {
     next unless open my $rcconfh, '<', $rcconf;
     while (<$rcconfh>) {
-      if (my ($svc, $key, $value) =/^\s*(\w+?)_(\S+)\s*=\s*"([^"]+)"/i) { #"mcedit
-        $value = 0  if $value =~ /^no(?:ne)?$/i;
+      if ( my ( $svc, $key, $value ) = /^\s*(\w+?)_(\S+)\s*=\s*"([^"]+)"/i ) {    #"mcedit
+        $value = 0 if $value =~ /^no(?:ne)?$/i;
         printlog( 'dbg', "rc.conf $key [$svc]" ) if $value eq 'enable';
-if (local @_ = grep { $svc{$_}{rcconfname} eq $svc            } keys %svc) {
-
-        printlog( 'rc', $svc, $key, $_ ),         $svc{$_}{$key} = $value          for @_;
+        if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
+          printlog( 'rc', $svc, $key, $_ ), $svc{$_}{$key} = $value for @_;
         } else {
-$svc{$svc}{rcsource}=$rcconf        unless $svc{$svc};
-        printlog( 'rc',$svc, $key,  ), $svc{$svc}{$key} = $value;#, next if exists $svc{$svc};
-        
+          $svc{$svc}{rcsource} = $rcconf unless $svc{$svc};
+          printlog( 'rc', $svc, $key, ), $svc{$svc}{$key} = $value;               #, next if exists $svc{$svc};
         }
       }
     }
     close $rcconfh;
   }
-  
- do $config{config}  if  $config{config};
-  
+  do $config{config} if $config{config};
 };
 #setting defaults
 prog('defaults')->{force} = 1;
@@ -498,8 +494,8 @@ prog('check')->{func} = sub {
   for my $s (services) {
     #for my $s ( keys %svc ) {
     #  next unless $svc{$s}{enable};
-#    printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}]" ), next if !$svc{$s}{rcd} or !-x $svc{$s}{rcd};
-next unless $svc{$s}{process};
+    #    printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}]" ), next if !$svc{$s}{rcd} or !-x $svc{$s}{rcd};
+    next unless $svc{$s}{process};
     printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
     my $founded;
     for my $p ( grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps ) {
@@ -575,7 +571,7 @@ next unless $svc{$s}{process};
           #    )
           ;
         my $result = $resp->is_success ? $resp->as_string : undef;
-        printlog( 'http', 'recv', $get,'per', human( 'time_period', time() - $time ), length $result,'bytes', ':', $result );
+        printlog( 'http', 'recv', $get, 'per', human( 'time_period', time() - $time ), length $result, 'bytes', ':', $result );
         #printlog('dbg', $resp->code(), Dumper $resp);
         my $code = config( $s, 'http_code' );
         if ($code) {
@@ -602,8 +598,7 @@ next unless $svc{$s}{process};
           else                           { @check = $check; }
           for my $check (@check) {
             $check = qr/\Q$check/ if ref $check ne 'Regexp';
-printlog('http', 'check match', $check),
-            next PORTOK if $result =~ $check;
+            printlog( 'http', 'check match', $check ), next PORTOK if $result =~ $check;
           }
           printlog( 'restart', 'no', $check, ' in ', $result );
         } else {
@@ -647,13 +642,13 @@ prog('help')->{func} = sub {
   printlog 'list', services;
 };
 prog('check')->{force} = 1 unless grep $prog{$_}{run}, keys %prog;
-unless(caller) {
-for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
-  #next unless $prog{$prog}{run} || (!$wantrun and $prog{$prog}{force});
-  next unless $prog{$prog}{run} || $prog{$prog}{force};
-  #printlog 'run', $prog;
-  $prog{$prog}{func}->( $prog{$prog}{opt} ) if ref $prog{$prog}{func} eq 'CODE';
-}
+unless (caller) {
+  for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
+    #next unless $prog{$prog}{run} || (!$wantrun and $prog{$prog}{force});
+    next unless $prog{$prog}{run} || $prog{$prog}{force};
+    #printlog 'run', $prog;
+    $prog{$prog}{func}->( $prog{$prog}{opt} ) if ref $prog{$prog}{func} eq 'CODE';
+  }
 }
 #printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog;
 1;
