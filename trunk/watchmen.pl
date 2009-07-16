@@ -3,7 +3,6 @@
 package watchmen;
 use strict;
 
-
 sub get_params_one(@) {    # WELCOME TO PERL %-)
   local %_ = %{ ref $_[0] eq 'HASH' ? shift : {} };
   for (@_) {
@@ -113,7 +112,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 =cut
 
 our $VERSION = '0.01';
-
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
