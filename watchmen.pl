@@ -646,5 +646,5 @@ unless (caller) {
     $prog{$prog}{func}->( $prog{$prog}{opt} ) if ref $prog{$prog}{func} eq 'CODE';
   }
 }
-printlog 'dmp', ${root_path};#, Dumper  \%config, \%svc, \%prog;
+#printlog 'dmp', ${root_path};#, Dumper  \%config, \%svc, \%prog;
 1;
