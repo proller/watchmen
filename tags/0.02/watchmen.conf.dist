@@ -1,0 +1,59 @@
+# THIS IS PERL FILE! USE CORRECT SYNTAX
+#
+#copy this file to watchmen.conf and edit
+#cp watchmen.conf.dist watchmen.conf
+#
+# print("watchdog disabled from watchmen.conf!\n"); exit;
+#
+# $config{log_all}=1; # full logging
+#
+#Disable wathing all default system services:
+#%svc = ();
+#
+#define your service:
+#$svc{snmpd} = n(); #correct order, process named "snmpd", correct [/usr/local]/etc/rc.d/snmpd
+#or
+#$svc{named} = {
+# Your custom check, example:
+#  check=>sub {   for(`nslookup ya.ru $svc{named}{host}`) {return undef if /213.180.204.8|77.88.21.8|93.158.134.8/} return 'restart' "}
+#};
+#
+#or with alternate ../rc.d/filename
+#$svc{icecast} = n(rcdname=>'icecast2');
+#or alternate process name
+#$svc{apache22} = n( process => 'httpd' );
+#... name in rc.conf
+#$svc{nmbd} = n( rcdname => 'samba', rcconfname => 'samba' );
+#
+#.. or add parametrs to default:
+#restart mysqld if memory usage > 2g
+#$svc{mysql}{max}{VSZ} = $svc{mysql}{max}{RSS} = 2_000_000;
+#or
+#%{$svc{mysql}} = (%{$svc{mysql}}, max=>{map {$_=>2_000_000} qw(VSZ RSS)});
+#
+#check port, code than custom content:
+#$svc{apache22}{http_check}='<html';
+#%{$svc{nginx}} = (%{$svc{nginx}}, http_check=>'<html' );
+#have no rc.conf vars, no restart:
+#$svc{communigate} = n(rcdname => 'CommuniGate.sh', process => 'CGServer', enable => 1, restart=>0);
+#
+#
+#$svc{VeryComplexService} = n(
+#  enable      => 1,
+#  'sleep'      => 30, # in restart sleep betwen start and stop (this service have very slow shutdown)
+#  restart      => 0, #no restart action in rc.d, using start..stop
+#  process      => 'VeryComplexService.20090209-1', #look in ps
+#  rcdname      => 'VeryComplexService.6234',
+#  tcp          => 6234, # try tcp connect port                   <--+
+#  http_host    => '723.542.718.592', # ip (if service bind to)      |
+#  http         => 8890, # try http connect port (can be other than tcp)
+#  http_method  => 'POST',
+#  http_path    => '/upload?login=VeryComplex&password=VeryComplexpassword',
+#  http_headers => { 'Content-Type' => 'application/x-www-form-urlencoded' },
+#  http_content => 'data=VeryComplexTest',
+#  http_code    => 200, # we want THIS code
+#  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
+#);
+$svc{mysql}{max}{VSZ} = $svc{mysql}{max}{RSS} = 8_000_000;
+$svc{openttd} = n( enabled => 1, rcdname => '9001.openttd.sh' );    #correct order
+1;
