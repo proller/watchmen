@@ -17,7 +17,6 @@ COMMENT=	Watch and restart daemons
 
 RUN_DEPENDS+=	${SITE_PERL}/LWP.pm:${PORTSDIR}/www/p5-libwww
 
-
 USE_PERL5_RUN=	yes
 POD2MAN?=	pod2man
 

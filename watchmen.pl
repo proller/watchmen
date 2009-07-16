@@ -20,7 +20,9 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
 =head1 SYNOPSIS
 
- watchmen.pl [--configkey=configvalue] [-svcname__svckey=svcvalue] ...
+ watchmen.pl [--configkey=configvalue] [-svcname__svckey=svcvalue] [command[=param]] ...
+ where command:
+ check[=svc] stop[=svc] restart[=svc] list avail help
 
 =head1 EXAMPLES
 
@@ -38,6 +40,12 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
  # reatart apache if more than 5 httpd proc, dont check sshd, load custom config
  watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
+
+ #check only 2 services with log
+ watchmen.pl check=named check=mysql --log_all 
+
+ # stop all EXCEPT sshd
+ watchmen.pl stop
 
 =head1 INSTALL
 
@@ -79,8 +87,8 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  mail errors
  various handlers
  rsync --daemon
- resort daemons with rcorder (system, local)
- more default ports
+ more default ports [tested!]
+ ?.pid usage?
 
 =head1 COPYRIGHT
 
@@ -224,13 +232,14 @@ sub alarmed {
 }
 # lib to here ===
 %config = (
-  'rcd'    => [qw(/usr/local/etc/rc.d/ /etc/rc.d/)],
-  'rcdext' => [ '', '.sh' ],
-  'ps'     => $^O eq 'freebsd' ? 'ps vxaww' : 'ps xaww',
+rcorder => 'rcorder',
+  rcd    => [qw(/etc/rc.d/ /usr/local/etc/rc.d/)],
+  rcdext => [ '', '.sh' ],
+  ps     => $^O eq 'freebsd' ? 'ps vxaww' : 'ps xaww',
   rcconf   => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
   #log_screen=>1,
   maxexttime => 30,
-  'default'  => {
+  default  => {
     min_proc                => 1,
     max_proc                => 1000,
     sleep                   => 1,
@@ -238,15 +247,26 @@ sub alarmed {
     timeout                 => 3,              # for tcp, udp
     restart_hard_stop_sleep => 5,
     restart_hard_kill_sleep => 5,
+  stop_hard => sub {
+    my ($s) = @_;
+    return unless process_check($s);
+    printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
+    sleep $svc{$s}{restart_hard_stop_sleep} ;
+prog_run('ps');
+    return unless  process_check($s);
+    printlog 'warn', $s, 'kill',$svc{$s}{process}, `killall $svc{$s}{process}`;
+    sleep $svc{$s}{restart_hard_kill_sleep};
+prog_run('ps');
+    return unless  process_check($s);
+
+    printlog 'warn', $s, 'kill-9', $svc{$s}{process},`killall -9 $svc{$s}{process}`;
+  
+  },
   },
   restart_hard => sub {
     my ($s) = @_;
     printlog( 'warn', $s, 'hard restart' );
-    printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
-    sleep $svc{$s}{restart_hard_stop_sleep} || $config{restart_hard_stop_sleep};
-    printlog 'warn', $s, 'kill', `killall $svc{$s}{process}`;
-    sleep $svc{$s}{restart_hard_kill_sleep} || $config{restart_hard_kill_sleep};
-    printlog 'warn', $s, 'kill-9', `killall -9 $svc{$s}{process}`;
+    $svc{$s}{stop_hard}->($s) if ref $svc{$s}{stop_hard} eq 'CODE';
     sleep 1;
     printlog 'warn', $s, 'start', `$svc{$s}{start}`;
   },
@@ -255,6 +275,7 @@ sub alarmed {
   log_default => '+' . ( $root_path =~ /watch/ ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
   log_rc      => 0,
+  log_rcorder      => 0,
   log_enable  => 0,
   log_alive   => 0,
   log_info    => 0,
@@ -264,7 +285,7 @@ sub alarmed {
   log_http    => 0,
   http_code => qr/^[1-4]\d\d$/,
   'human'   => {
-    'date' => sub {    #v1
+    date => sub {    #v1
       my $d = $_[1] || '/';
       return strftime "%Y${d}%m${d}%d", localtime( $_[0] || time() );
     },
@@ -272,20 +293,20 @@ sub alarmed {
       my $d = $_[1] || ':';
       return strftime "%H${d}%M${d}%S", localtime( $_[0] || time() );
     },
-    'date_time' => sub {
+    date_time => sub {
       return human( 'date', $_[0] || time(), $_[2] ) . ( $_[1] || '-' ) . human( 'time', $_[0] || time(), $_[3] );
     },
-    'float' => sub {    #v1
+    float => sub {    #v1
       return ( $_[0] < 8 and $_[0] - int( $_[0] ) )
         ? sprintf( '%.' . ( $_[0] < 1 ? 3 : $_[0] < 3 ? 2 : 1 ) . 'f', $_[0] )
         : int( $_[0] );
     },
-    'micro_time' => sub {
+    micro_time => sub {
       my $now = time();
       ( $now = human( 'float', abs( int($now) - $now ) ) ) =~ s/^0//;
       return ( $now or '' );
     },
-    'time_period' => sub {    #v0
+    time_period => sub {    #v0
       my ( $tim, $delim, $sign ) = @_;
       $sign = '-', $tim = -$tim if $tim < 0;
       #print("tpern[", $tim, ']'),
@@ -334,8 +355,8 @@ for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}w
   svnserve => n( process => 'svnserve.bin', tcp     => 3690 ),
   snmpd    => n,
   bsnmpd   => n,
-  nmbd        => n( rcdname    => 'samba',      rcconfname => 'samba', udp => [ 137, 138 ] ),
-  smbd        => n( rcdname    => 'samba',      rcconfname => 'samba', tcp => [ 139, 445 ] ),
+  nmbd        => n( rcdname    => 'samba',      rcconfname => 'samba', udp => [ 137, 138 ] , force_restart=>1),
+  smbd        => n( rcdname    => 'samba',      rcconfname => 'samba', tcp => [ 139, 445 ] , force_restart=>1 ),
   nfsd        => n( rcconfname => 'nfs_server', tcp        => 2049 ),
   mpd4        => n,
   mpd5        => n,
@@ -355,7 +376,7 @@ for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}w
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf.pl not exist" ); }
-our %prog;
+our (%prog, %ps);
 
 sub param_to_config ($) {
   my ($param) = @_;
@@ -386,6 +407,34 @@ param_to_config( scalar get_params() );
     return $prog{$current};
   }
 }
+sub process_check ($) {
+my ($s) = @_;
+    return  unless $svc{$s}{process};
+     grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps ;
+
+}
+
+
+sub action ($$;@) {
+my ($s, $action) = (shift, shift);
+#printlog 'act', $s, $action, $svc{$s}{ $action } ;
+    next unless $action;
+    printlog(
+      'action', $s,
+      $action,
+      $svc{$s}{ $action },
+      alarmed(
+        $config{maxexttime},
+        sub {
+          ref $svc{$s}{ $action } eq 'CODE'
+            ? $svc{$s}{ $action }->( $s, $action, @_ )
+            : `$svc{$s}{$action}`;
+          delete $svc{$s}{action};
+        }
+      )
+    ) if $svc{$s}{ $action };
+    }
+
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
   for my $rcconf ( @{ $config{rcconf} } ) {
@@ -443,9 +492,37 @@ prog()->{func} = sub {
     };
     $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
     $svc{$s}{rcconf} ||= $s;
+     $svc{$s}{name} ||= $s;
   }
 };
-my %ps;
+
+prog('rcorder')->{force} = 1;
+prog()->{func} = sub {
+
+my %rcd;
+for (
+sort keys %svc) {
+#print "$rcd{$svc{$_}{rcd}};";
+$rcd{$svc{$_}{rcd}} = 
+ $rcd{$svc{$_}{rcd}} ? 
+  ref$rcd{$svc{$_}{rcd}} eq 'ARRAY' ? 
+  [@{$rcd{$svc{$_}{rcd}} },$svc{$_} ]  :
+   [$rcd{$svc{$_}{rcd}}, $svc{$_}] :
+   $svc{$_};
+}
+my $order = 200000;
+for  (@{$config{rcd}}) {
+for (`$config{rcorder} $_* 2>/dev/null`) {
+chomp;
+my $p = $rcd{$_};
+my @p = ref $p eq 'ARRAY' ? sort @$p : $p;
+$_->{order} = $order-= 10 ,
+(!watchable($_->{name}) ? ():printlog('rcorder', $_->{name}, $_->{order})), 
+for @p;
+}
+}
+
+};
 prog('ps')->{force} = 1;
 prog()->{func} = sub {
   %ps = ();
@@ -480,18 +557,21 @@ prog()->{func} = sub {
 };
 #prog('process')->{force} = 1;
 #prog()->{func} = sub {
+
+
 prog('check')->{func} = sub {
-  for my $s (services) {
+my $s = $_[0];
+  for my $s ( $s || services) {
     #for my $s ( keys %svc ) {
     #  next unless $svc{$s}{enable};
     #    printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}]" ), next if !$svc{$s}{rcd} or !-x $svc{$s}{rcd};
     next unless $svc{$s}{process};
     printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
     my $founded;
-    for my $p ( grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps ) {
+    for my $p (process_check $s){ #( grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps ) {
       for my $max ( grep { $svc{$s}{max}{$_} } keys %{ $svc{$s}{max} || {} } ) {
         #printlog('dev', "look at $s limit [$max]", $svc{$s}{max}{$max} , $ps{$p}{$max});
-        printlog( 'warn', "$s limit [$max]", $ps{$p}{$max}, '>', $svc{$s}{max}{$max} ), $svc{$s}{action} = 'restart'
+        printlog( 'warn', "$s limit [$max]", $ps{$p}{$max}, '>', $svc{$s}{max}{$max} ), $svc{$s}{action} ||= 'restart'
           if $ps{$p}{$max} > $svc{$s}{max}{$max};
       }
       ++$founded;
@@ -511,7 +591,7 @@ prog('check')->{func} = sub {
   #};
   #prog('service')->{force} = 1;
   #prog()->{func} = sub {
-  for my $s (services) {
+  for my $s ($s ||services) {
     #  next unless $svc{$s}{enable};
     for my $prot (qw(tcp udp)) {
       $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
@@ -600,45 +680,53 @@ prog('check')->{func} = sub {
     }
     #  printlog( 'action', $s, $svc{$a}{action}, );
     $svc{$s}{action} ||= $svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
-    next unless $svc{$s}{action};
-    printlog(
-      'action', $s,
-      $svc{$s}{action},
-      $svc{$s}{ $svc{$s}{action} },
-      alarmed(
-        $config{maxexttime},
-        sub {
-          ref $svc{$s}{ $svc{$s}{action} } eq 'CODE'
-            ? $svc{$s}{ $svc{$s}{action} }->( $s, $svc{$s}{action} )
-            : `$svc{$s}{$svc{$s}{action}}`;
-          delete $svc{$s}{action};
-        }
-      )
-    ) if $svc{$s}{ $svc{$s}{action} };
+action($s, $svc{$s}{action});
   }
+
 };
-#printlog 'dump', Dumper( \%config, \%svc, $root_path );
-prog('stop')->{func}    = sub { };
-prog('restart')->{func} = sub { };
 
 sub watchable (@) {
   grep { $svc{$_}{process} or $svc{$_}{tcp} or $svc{$_}{udp} or $svc{$_}{http} or $svc{$_}{https} } @_;
 }
+
+
+#printlog 'dump', Dumper( \%config, \%svc, $root_path );
+prog('stop')->{func}    = sub { 
+#  local $config{log_ps} = '-' ;
+  local $config{log_all} = 1;
+  printlog 'stop', ':',$@,
+  action($_, 'stop_hard'), for 
+$_[0] ||
+  grep {!$svc{$_}{no_stop}}
+   watchable reverse services;
+
+};
+prog('restart')->{func} = sub {
+prog_run('stop', @_);
+prog_run('check', @_);
+ };
+
 prog('list')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'list', ':', watchable services;
 };
 prog('avail')->{func} = sub {
   local $config{log_all} = 1;
-  printlog 'avail', ':', watchable sort keys %svc;
+#printlog 'rco', -x 'rcorder';
+  printlog 'avail', ':', watchable sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc;
 };
 prog('help')->{func} = sub {
   local $config{log_all} = 1;
-  print "todo";
+print "\n Avail commands:\n";
+for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
+  print "$prog ";
+  } 
+print "\n";
 };
 
 sub prog_run($;@) {
   my $prog = shift;
+#printlog 'run', $prog, @_;
   $prog{$prog}{func}->(@_) if ref $prog{$prog}{func} eq 'CODE';
 }
 
@@ -653,12 +741,12 @@ unless (caller) {
   my @wantrun;
   for (@ARGV) {
     next if /^-/;
-    my ( $p, $v ) = get_params_one($_);
-    push @wantrun, { p => $p, v => $v };
+    push @wantrun, [get_params_one($_)];
+#    print Dumper \@wantrun;
   }
   prog('check')->{force} = 1 unless @wantrun;    #grep $prog{$_}{run}, keys %prog;
   progs();
-  prog_run( $_->{p}, $_->{v} ) for @wantrun;
+  prog_run( $_->[0],$_->[1] ) for @wantrun;
 }
 #printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog;
 1;
