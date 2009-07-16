@@ -6,12 +6,15 @@ use ExtUtils::MakeMaker;
   VERSION_FROM  => 'watchmen.pl',
   INSTALLDIRS   => 'bin',
   PREREQ_PM     => { 'Time::HiRes' => '0', 'LWP::UserAgent' => '0', 'URI::URL' => '0', },
-  ABSTRACT_FROM => 'watchmen.pl',
+  EXE_FILES               => [ 'watchmen' ],
 );
 WriteMakefile(%_);
 
 sub MY::postamble {
   qq{
+watchmen: watchmen.pl
+        cp watchmen.pl watchmen
+
 docs: README
 
 README: $_{VERSION_FROM}
