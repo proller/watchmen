@@ -1,7 +1,9 @@
-#copy this file to watchmen.conf.pl and edit
-#cp watchmen.conf.pl.dist watchmen.conf.pl
+# THIS IS PERL FILE! USE CORRECT SYNTAX
 #
-# print("watchdog disabled from watchmen.conf.pl!\n"); exit;
+#copy this file to watchmen.conf and edit
+#cp watchmen.conf.dist watchmen.conf
+#
+# print("watchdog disabled from watchmen.conf!\n"); exit;
 #
 # $config{log_all}=1; # full logging
 #
