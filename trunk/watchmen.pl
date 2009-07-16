@@ -16,7 +16,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
 =head1 NAME
 
- watchmen - watch daemons
+ watchmen - watch daemons and restart
 
 =head1 SYNOPSIS
 
@@ -50,6 +50,8 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  cp watchmen.pl /usr/local/bin/watchmen ; cp watchmen.conf.pl.dist /usr/local/etc/watchmen.conf.pl
  edit /usr/local/etc/watchmen.conf.pl
 
+ run watchmen twice. second run must be quiet (all ok) if not - edit config
+
  add to crontab:
  echo "*       *       *       *       *       root    /usr/local/bin/watchmen" >> /etc/crontab
 
@@ -62,7 +64,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  you can configure services from /etc/rc.conf[.local] file[s]:
  for config string  $svc{service}{key} = 'value'; write to rc.conf:
  service_key="value"
- ex:
+ example:
  apache22_http="81" 
  # or define new service, with one of correct keys: process tcp udp http https :
  nginx_enable="YES"
@@ -366,15 +368,6 @@ sub param_to_config ($) {
     local @_ = split( /__/, $w ) or return 0;
     eval( $where . join( '', map { '{$_[' . $_ . ']}' } ( 0 .. $#_ ) ) . ' = $v;' );
   }
-  my $wantrun;
-  for (@ARGV) {
-    next if /^-/;
-    ++$wantrun;
-    my ( $p, $v ) = get_params_one($_);
-    $prog{$p}{run} = 1;
-    $prog{$p}{opt} = $v;
-    printlog 'RUN', ( $p, $v );
-  }
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
@@ -452,9 +445,10 @@ prog()->{func} = sub {
     $svc{$s}{rcconf} ||= $s;
   }
 };
-my (%ps);
+my %ps;
 prog('ps')->{force} = 1;
 prog()->{func} = sub {
+%ps = ();
   my @ps = `$config{ps}`;
   printlog( 'ps', @ps );
   local $_ = shift @ps;
@@ -617,6 +611,7 @@ prog('check')->{func} = sub {
           ref $svc{$s}{ $svc{$s}{action} } eq 'CODE'
             ? $svc{$s}{ $svc{$s}{action} }->( $s, $svc{$s}{action} )
             : `$svc{$s}{$svc{$s}{action}}`;
+            delete $svc{$s}{action};
         }
       )
     ) if $svc{$s}{ $svc{$s}{action} };
@@ -625,26 +620,48 @@ prog('check')->{func} = sub {
 #printlog 'dump', Dumper( \%config, \%svc, $root_path );
 prog('stop')->{func}    = sub { };
 prog('restart')->{func} = sub { };
+sub watchable (@) {
+grep{$svc{$_}{process} or  $svc{$_}{tcp} or $svc{$_}{udp} or $svc{$_}{http} or  $svc{$_}{https}} @_;
+}
 prog('list')->{func}    = sub {
-  $config{log_all} = 1;
-  printlog 'list', services;
+local   $config{log_all} = 1;
+  printlog 'list', ':', watchable services;
 };
 prog('avail')->{func} = sub {
-  $config{log_all} = 1;
-  printlog 'list', @_, ':', sort keys %svc;
+local   $config{log_all} = 1;
+  printlog 'avail', ':',  watchable sort  keys %svc;
 };
 prog('help')->{func} = sub {
-  $config{log_all} = 1;
-  printlog 'list', services;
+local   $config{log_all} = 1;
+print "todo";
 };
-prog('check')->{force} = 1 unless grep $prog{$_}{run}, keys %prog;
-unless (caller) {
+
+sub prog_run($;@) {
+my $prog = shift;
+    $prog{$prog}{func}->( @_ ) if ref $prog{$prog}{func} eq 'CODE';
+
+}
+sub progs (){
   for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
-    #next unless $prog{$prog}{run} || (!$wantrun and $prog{$prog}{force});
-    next unless $prog{$prog}{run} || $prog{$prog}{force};
-    #printlog 'run', $prog;
-    $prog{$prog}{func}->( $prog{$prog}{opt} ) if ref $prog{$prog}{func} eq 'CODE';
+    next unless $prog{$prog}{force};
+#    printlog 'run', $prog;
+    prog_run( $prog );
   }
 }
-#printlog 'dmp', ${root_path};#, Dumper  \%config, \%svc, \%prog;
+
+unless (caller) {
+my @wantrun; 
+    for (@ARGV) {
+        next if /^-/;
+            my ( $p, $v ) = get_params_one($_);
+            push @wantrun, {p=>$p, v=>$v};
+            }
+prog('check')->{force} = 1 unless @wantrun ;#grep $prog{$_}{run}, keys %prog;
+  
+  progs();
+              prog_run($_->{p},$_->{v}) for @wantrun;
+
+  
+}
+#printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog;
 1;
