@@ -55,8 +55,8 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  perl -MCPAN -e "install LWP, URI"
 
 
- cp watchmen.pl /usr/local/bin/watchmen ; cp watchmen.conf.pl.dist /usr/local/etc/watchmen.conf.pl
- edit /usr/local/etc/watchmen.conf.pl
+ cp watchmen.pl /usr/local/bin/watchmen ; cp watchmen.conf.dist /usr/local/etc/watchmen.conf
+ edit /usr/local/etc/watchmen.conf
 
  run watchmen twice. second run must be quiet (all ok) if not - edit config
 
@@ -67,7 +67,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
  by default some of default services enabled
 
- read [and edit] watchmen.conf.pl
+ read [and edit] watchmen.conf
 
  you can configure services from /etc/rc.conf[.local] file[s]:
  for config string  $svc{service}{key} = 'value'; write to rc.conf:
@@ -322,7 +322,7 @@ sub alarmed {
       }
   },
 );
-for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}watchmen.conf.pl" ) {
+for ( "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", "${root_path}watchmen.conf" ) {
   $config{config} ||= $_, last if -r;
 }
 {
@@ -371,7 +371,7 @@ for ( "/usr/local/etc/watchmen.conf.pl", "/etc/watchmen.conf.pl", "${root_path}w
   tinyproxy => n,    #tcp => 8888
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
-else                   { printlog( 'info', "using default config because watchmen.conf.pl not exist" ); }
+else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
 our ( %prog, %ps );
 
 sub param_to_config ($) {
