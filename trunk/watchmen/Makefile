@@ -6,7 +6,7 @@
 #
 
 PORTNAME=	watchmen
-PORTVERSION=	0.0.1
+PORTVERSION=	0.01
 CATEGORIES=	sysutils
 MASTER_SITES=	http://watchmen.googlecode.com/svn/trunk/
 DISTFILES=	${PORTNAME}.pl ${PORTNAME}.conf.pl.dist
