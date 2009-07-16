@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 %_ = (
   NAME          => 'watchmen',
-  VERSION_FROM  => 'watchmen.pl',
+  VERSION_FROM  => 'watchmen',
   INSTALLDIRS   => 'bin',
   PREREQ_PM     => { 'Time::HiRes' => '0', 'LWP::UserAgent' => '0', 'URI::URL' => '0', },
   EXE_FILES               => [ 'watchmen' ],
@@ -12,9 +12,6 @@ WriteMakefile(%_);
 
 sub MY::postamble {
   qq{
-watchmen: watchmen.pl
-        cp watchmen.pl watchmen
-
 docs: README
 
 README: $_{VERSION_FROM}
