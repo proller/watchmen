@@ -111,7 +111,7 @@ our $root_path;
 
 BEGIN {
   ( $ENV{'SCRIPT_FILENAME'} || $0 ) =~ m|^(.+)[/\\].+?$|;    #v0w
-  ( $root_path = ( $1 || getcwd ) . '/' ) =~ tr|\\|/|;
+  ( $root_path = ( $1 and $1 ne '.' ? $1 : getcwd ) . '/' ) =~ tr|\\|/|;
 }
 # lib funcs ===
 sub get_params(;$$) {                                        #v6
@@ -646,5 +646,5 @@ unless (caller) {
     $prog{$prog}{func}->( $prog{$prog}{opt} ) if ref $prog{$prog}{func} eq 'CODE';
   }
 }
-#printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog;
+printlog 'dmp', ${root_path};#, Dumper  \%config, \%svc, \%prog;
 1;
