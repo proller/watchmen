@@ -254,7 +254,7 @@ sub alarmed {
   # log_all=>'+',
   log_default => '+' . ( $root_path =~ /watch/ ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
-  log_rc    => 0,
+  log_rc      => 0,
   log_enable  => 0,
   log_alive   => 0,
   log_info    => 0,
@@ -448,7 +448,7 @@ prog()->{func} = sub {
 my %ps;
 prog('ps')->{force} = 1;
 prog()->{func} = sub {
-%ps = ();
+  %ps = ();
   my @ps = `$config{ps}`;
   printlog( 'ps', @ps );
   local $_ = shift @ps;
@@ -611,7 +611,7 @@ prog('check')->{func} = sub {
           ref $svc{$s}{ $svc{$s}{action} } eq 'CODE'
             ? $svc{$s}{ $svc{$s}{action} }->( $s, $svc{$s}{action} )
             : `$svc{$s}{$svc{$s}{action}}`;
-            delete $svc{$s}{action};
+          delete $svc{$s}{action};
         }
       )
     ) if $svc{$s}{ $svc{$s}{action} };
@@ -620,48 +620,45 @@ prog('check')->{func} = sub {
 #printlog 'dump', Dumper( \%config, \%svc, $root_path );
 prog('stop')->{func}    = sub { };
 prog('restart')->{func} = sub { };
+
 sub watchable (@) {
-grep{$svc{$_}{process} or  $svc{$_}{tcp} or $svc{$_}{udp} or $svc{$_}{http} or  $svc{$_}{https}} @_;
+  grep { $svc{$_}{process} or $svc{$_}{tcp} or $svc{$_}{udp} or $svc{$_}{http} or $svc{$_}{https} } @_;
 }
-prog('list')->{func}    = sub {
-local   $config{log_all} = 1;
+prog('list')->{func} = sub {
+  local $config{log_all} = 1;
   printlog 'list', ':', watchable services;
 };
 prog('avail')->{func} = sub {
-local   $config{log_all} = 1;
-  printlog 'avail', ':',  watchable sort  keys %svc;
+  local $config{log_all} = 1;
+  printlog 'avail', ':', watchable sort keys %svc;
 };
 prog('help')->{func} = sub {
-local   $config{log_all} = 1;
-print "todo";
+  local $config{log_all} = 1;
+  print "todo";
 };
 
 sub prog_run($;@) {
-my $prog = shift;
-    $prog{$prog}{func}->( @_ ) if ref $prog{$prog}{func} eq 'CODE';
-
+  my $prog = shift;
+  $prog{$prog}{func}->(@_) if ref $prog{$prog}{func} eq 'CODE';
 }
-sub progs (){
+
+sub progs () {
   for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
     next unless $prog{$prog}{force};
-#    printlog 'run', $prog;
-    prog_run( $prog );
+    #    printlog 'run', $prog;
+    prog_run($prog);
   }
 }
-
 unless (caller) {
-my @wantrun; 
-    for (@ARGV) {
-        next if /^-/;
-            my ( $p, $v ) = get_params_one($_);
-            push @wantrun, {p=>$p, v=>$v};
-            }
-prog('check')->{force} = 1 unless @wantrun ;#grep $prog{$_}{run}, keys %prog;
-  
+  my @wantrun;
+  for (@ARGV) {
+    next if /^-/;
+    my ( $p, $v ) = get_params_one($_);
+    push @wantrun, { p => $p, v => $v };
+  }
+  prog('check')->{force} = 1 unless @wantrun;    #grep $prog{$_}{run}, keys %prog;
   progs();
-              prog_run($_->{p},$_->{v}) for @wantrun;
-
-  
+  prog_run( $_->{p}, $_->{v} ) for @wantrun;
 }
 #printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog;
 1;
