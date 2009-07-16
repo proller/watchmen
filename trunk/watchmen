@@ -111,7 +111,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
