@@ -9,6 +9,7 @@ PORTNAME=	watchmen
 PORTVERSION=	0.02
 CATEGORIES=	sysutils
 MASTER_SITES=	${MASTER_SITE_GOOGLE_CODE} CPAN
+MASTER_SITE_SUBDIR=	../../authors/id/P/PR/PRO/
 
 MAINTAINER=	proler@gmail.com
 COMMENT=	Watch and restart daemons
