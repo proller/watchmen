@@ -2,14 +2,13 @@
 # Date created:		2009-07-16
 # Whom:			Oleg Alexeenkov <proler@gmail.com>
 #
-# $FreeBSD$
+# $FreeBSD: ports/sysutils/watchmen/Makefile,v 1.1 2009/07/17 18:57:31 pgollucci Exp $
 #
 
 PORTNAME=	watchmen
 PORTVERSION=	0.02
 CATEGORIES=	sysutils
-MASTER_SITES=	${MASTER_SITE_GOOGLE_CODE} CPAN
-MASTER_SITE_SUBDIR=	../../authors/id/P/PR/PRO/
+MASTER_SITES=	${MASTER_SITE_GOOGLE_CODE}
 
 MAINTAINER=	proler@gmail.com
 COMMENT=	Watch and restart daemons
@@ -22,7 +21,11 @@ USE_PERL5_RUN=	yes
 POD2MAN?=	pod2man
 
 MAN1=		${PORTNAME}.1
-PLIST_FILES=	bin/${PORTNAME} etc/${PORTNAME}.conf.dist
+PLIST_FILES= \
+	bin/${PORTNAME}  \
+	etc/${PORTNAME}.conf.dist  \
+	%%SITE_PERL%%/%%PERL_ARCH%%/auto/watchmen/.packlist
+PLIST_DIRS=%%SITE_PERL%%/%%PERL_ARCH%%/auto/watchmen
 
 .include <bsd.port.pre.mk>
 
