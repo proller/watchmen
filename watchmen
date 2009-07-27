@@ -126,20 +126,16 @@ BEGIN {
   ( $root_path = ( $1 and $1 ne '.' ? $1 : getcwd ) . '/' ) =~ tr|\\|/|;
 }
 
-sub get_params(;$$) {                                        #v6
-  my ( $par_string, $delim ) = @_;
+sub get_params(;$$) {                                        #v7
+  my ( $string, $delim ) = @_;
   $delim ||= '&';
-  local %_;
-  read( STDIN, local $_ = '', $ENV{'CONTENT_LENGTH'} ) if !$par_string and $ENV{'CONTENT_LENGTH'};
-  %_ = (
-    %_,
-    $par_string
-    ? get_params_one( split $delim, $par_string )
+  read( STDIN, local $_ = '', $ENV{'CONTENT_LENGTH'} ) if !$string and $ENV{'CONTENT_LENGTH'};
+  local %_ = $string
+    ? get_params_one split $delim, $string
     : (
-      get_params_one(@ARGV), map { get_params_one split $delim, $_ } split( /;\s*/, $ENV{'HTTP_COOKIE'} ),
-      $ENV{'QUERY_STRING'},  $_
-    )
-  );
+    get_params_one(@ARGV), map { get_params_one split $delim, $_ } split( /;\s*/, $ENV{'HTTP_COOKIE'} ),
+    $ENV{'QUERY_STRING'}, $_
+    );
   wantarray ? %_ : \%_;
 }
 {
@@ -323,7 +319,8 @@ sub alarmed {
   },
 );
 for ( "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", "${root_path}watchmen.conf" ) {
-  $config{config} ||= $_, last if -r;
+  $config{config} ||= $_, last
+    if -r;
 }
 {
   my $order = 100000;
