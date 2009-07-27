@@ -54,6 +54,5 @@
 #  http_code    => 200, # we want THIS code
 #  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
 #);
-$svc{mysql}{max}{VSZ} = $svc{mysql}{max}{RSS} = 8_000_000;
-$svc{openttd} = n( enabled => 1, rcdname => '9001.openttd.sh' );    #correct order
+
 1;

@@ -2,11 +2,11 @@ use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 %_ = (
-  NAME          => 'watchmen',
-  VERSION_FROM  => 'watchmen',
-  INSTALLDIRS   => 'bin',
-  PREREQ_PM     => { 'Time::HiRes' => '0', 'LWP::UserAgent' => '0', 'URI::URL' => '0', },
-  EXE_FILES               => [ 'watchmen' ],
+  NAME         => 'watchmen',
+  VERSION_FROM => 'watchmen',
+  INSTALLDIRS  => 'bin',
+  PREREQ_PM    => { 'Time::HiRes' => '0', 'LWP::UserAgent' => '0', 'URI::URL' => '0', },
+  EXE_FILES    => ['watchmen'],
 );
 WriteMakefile(%_);
 
