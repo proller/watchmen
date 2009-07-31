@@ -366,6 +366,7 @@ for ( "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", "${root_path}watchme
   icecast    => n( rcdname => 'icecast2', http => 8000 ),
   ipa       => n,
   tinyproxy => n,    #tcp => 8888
+  iscsi_target  => n( process => 'iscsi-target', tcp=>3260, udp=>3260 ),
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
@@ -427,7 +428,7 @@ prog()->{func} = sub {
   for my $rcconf ( @{ $config{rcconf} } ) {
     next unless open my $rcconfh, '<', $rcconf;
     while (<$rcconfh>) {
-      if ( my ( $svc, $key, $value ) = /^\s*(\w+?)_(\S+)\s*=\s*"([^"]+)"/i ) {    #"mcedit
+      if ( my ( $svc, $key, $value ) = /^\s*(\w+)_(\S+)\s*=\s*"([^"]+)"/i ) {    #"mcedit
         $value = 0 if $value =~ /^no(?:ne)?$/i;
         printlog( 'dbg', "rc.conf $key [$svc]" ) if $value eq 'enable';
         if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
