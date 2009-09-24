@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
+#$Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 package watchmen;
 use strict;
 
@@ -26,7 +26,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
 =head1 EXAMPLES
 
- # check and restart default services
+#check and restart default services
  watchmen.pl
 
  #list of enabled services
@@ -35,16 +35,16 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  #list of available services
  watchmen.pl avail
 
- # full log
+#full log
  watchmen.pl --log_all
 
- # reatart apache if more than 5 httpd proc, dont check sshd, load custom config
+#reatart apache if more than 5 httpd proc, dont check sshd, load custom config
  watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
 
  #check only 2 services with log
  watchmen.pl check=named check=mysql --log_all 
 
- # stop all EXCEPT sshd
+#stop all EXCEPT sshd
  watchmen.pl stop
 
 =head1 INSTALL
@@ -74,7 +74,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  service_key="value"
  example:
  apache22_http="81" 
- # or define new service, with one of correct keys: process tcp udp http https :
+#or define new service, with one of correct keys: process tcp udp http https :
  nginx_enable="YES"
  nginx_process="nginx"
  nginx_http="8001"
@@ -154,11 +154,11 @@ sub get_params(;$$) {                                        #v7
     }
     return @_;
   }
-  sub file_rewrite(;$@) {
-  unlink $_[0] if $_[0]; 
-  return &file_append;
-}
 
+  sub file_rewrite(;$@) {
+    unlink $_[0] if $_[0];
+    return &file_append;
+  }
   END { close( $fh{$_} ) for keys %fh; }
 }
 
@@ -252,46 +252,30 @@ sub alarmed {
     stop_hard               => sub {
       my ($s) = @_;
       return unless process_check($s);
-      my $flag = $config{tmp}.'hard.'.$s.'.stop';
-unless (-e $flag) {
-file_rewrite $flag, $$;
-      printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
-      sleep $svc{$s}{restart_hard_stop_sleep};
-      unlink $flag;
-} else {
-printlog 'hard', 'flag exists', $flag;
-}
-$flag =  $config{tmp}.'hard.'.$s.'.kill';
-
-unless (-e $flag) {
-
-      prog_run('ps');
-      return unless process_check($s);
-
-
-file_rewrite $flag, $$;
-      printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
-      sleep $svc{$s}{restart_hard_kill_sleep};
-      unlink $flag;
-      
-#      }
-} else {
-printlog 'hard', 'flag exists', $flag;
-}      
-#$flag =  $config{tmp}.'hard.'.$s.'.kill';
-
-#unless (-e $flag) {
-#file_rewrite $flag, $$;
-      
+      my $flag = $config{tmp} . 'hard.' . $s . '.stop';
+      unless ( -e $flag ) {
+        file_rewrite $flag, $$;
+        printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
+        sleep $svc{$s}{restart_hard_stop_sleep};
+        unlink $flag;
+      } else {
+        printlog 'hard', 'flag exists', $flag;
+      }
+      $flag = $config{tmp} . 'hard.' . $s . '.kill';
+      unless ( -e $flag ) {
+        prog_run('ps');
+        return unless process_check($s);
+        file_rewrite $flag, $$;
+        printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
+        sleep $svc{$s}{restart_hard_kill_sleep};
+        unlink $flag;
+      } else {
+        printlog 'hard', 'flag exists', $flag;
+      }
       prog_run('ps');
       return unless process_check($s);
       printlog 'warn', $s, 'kill-9', $svc{$s}{process}, `killall -9 $svc{$s}{process}`;
-#      unlink $flag;
-
-#      }
-
-unlink $_ for $config{tmp}.'hard.'.$s.'.stop', $config{tmp}.'hard.'.$s.'.kill';
-      
+      unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
     },
   },
   restart_hard => sub {
@@ -301,7 +285,7 @@ unlink $_ for $config{tmp}.'hard.'.$s.'.stop', $config{tmp}.'hard.'.$s.'.kill';
     sleep 1;
     printlog 'warn', $s, 'start', `$svc{$s}{start}`;
   },
-  # log_all=>'+',
+  #log_all=>'+',
   log_default => '+' . ( $root_path =~ /watch/ ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
   log_rc      => 0,
@@ -313,9 +297,9 @@ unlink $_ for $config{tmp}.'hard.'.$s.'.stop', $config{tmp}.'hard.'.$s.'.kill';
   log_dbg     => 0,
   log_port    => 0,
   log_http    => 0,
-  tmp =>  ( $root_path =~ /watch/ ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),
+  tmp => ( $root_path =~ /watch/ ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),
   http_code => qr/^[1-4]\d\d$/,
-  human   => {
+  human     => {
     date => sub {    #v1
       my $d = $_[1] || '/';
       return strftime "%Y${d}%m${d}%d", localtime( $_[0] || time() );
@@ -401,9 +385,9 @@ for ( "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", "${root_path}watchme
   nut_upslog => n( process => 'upslog' ),
   nut_upsmon => n( process => 'upsmon' ),
   icecast    => n( rcdname => 'icecast2', http => 8000 ),
-  ipa       => n,
-  tinyproxy => n,    #tcp => 8888
-  iscsi_target  => n( process => 'iscsi-target', tcp=>3260, udp=>3260 ),
+  ipa          => n,
+  tinyproxy    => n,                                                          #tcp => 8888
+  iscsi_target => n( process => 'iscsi-target', tcp => 3260, udp => 3260 ),
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
@@ -415,7 +399,7 @@ sub param_to_config ($) {
     my $v = $param->{$w};
     next unless $w =~ s/^-//;
     my $where = ( $w =~ s/^-// ? '$config' : '$svc' );
-    #    $v =~ s/^NUL$//;
+    #$v =~ s/^NUL$//;
     #next unless defined($w) and defined($v);
     $v = 1 unless defined $v;
     local @_ = split( /__/, $w ) or next;
@@ -473,7 +457,7 @@ prog()->{func} = sub {
           printlog( 'rc', $svc, $key, $_ ), $svc{$_}{$key} = $value for @_;
         } else {
           $svc{$svc}{rcsource} = $rcconf unless $svc{$svc};
-          printlog( 'rc', $svc, $key, ), $svc{$svc}{$key} = $value;               #, next if exists $svc{$svc};
+          printlog( 'rc', $svc, $key, ), $svc{$svc}{$key} = $value;              #, next if exists $svc{$svc};
         }
       }
     }
@@ -505,7 +489,7 @@ prog()->{func} = sub {
     $svc{$s}{start} ||= $svc{$s}{rcd} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start';
     $svc{$s}{stop} ||= $svc{$s}{rcd} . ' stop';
     $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart};
-    #  $svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
+    #$svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
     $svc{$s}{restart} ||= sub {
       my $s = shift;
       printlog( 'stop', $s );
@@ -566,7 +550,7 @@ prog()->{func} = sub {
     #'COMMAND' => 'proftpd: (accepting connections) (proftpd)',
     #'COMMAND' => 'mc'
     #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
-    # 'COMMAND' => 'screen -DRa',
+    #'COMMAND' => 'screen -DRa',
     $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
     $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
     $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^\S*/(\S+)};
@@ -587,7 +571,7 @@ prog('check')->{func} = sub {
       }
       ++$founded;
     }
-    #  printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
+    #printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
     unless ($founded) {
       printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
       $svc{$s}{action} ||= 'start';
@@ -645,7 +629,7 @@ prog('check')->{func} = sub {
             config( $s, 'http_content' )
           )
           )
-          #    )
+          #)
           ;
         my $result = $resp->is_success ? $resp->as_string : undef;
         printlog( 'http', 'recv', $get, 'per', human( 'time_period', time() - $time ), length $result, 'bytes', ':', $result );
@@ -656,7 +640,7 @@ prog('check')->{func} = sub {
           my $code_ok;
           if   ( ref $code eq 'Regexp' ) { ++$code_ok if $_ =~ $code; }
           else                           { ++$code_ok if $_ =~ /$code/; }
-          #          printlog( 'warn', 'http code, recv', $_, ', want ', $code, "[$code_ok]");
+          #printlog( 'warn', 'http code, recv', $_, ', want ', $code, "[$code_ok]");
           unless ($code_ok) {
             printlog( 'warn', 'no good http code, recv', $_, ', want ', $code, "[$code_ok]" );
             $svc{$s}{action} ||= 'restart';
@@ -684,7 +668,7 @@ prog('check')->{func} = sub {
         last;
       }
     }
-    #  printlog( 'action', $s, $svc{$a}{action}, );
+    #printlog( 'action', $s, $svc{$a}{action}, );
     $svc{$s}{action} ||= $svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
     action( $s, $svc{$s}{action} );
   }
