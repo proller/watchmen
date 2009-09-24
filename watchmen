@@ -154,6 +154,11 @@ sub get_params(;$$) {                                        #v7
     }
     return @_;
   }
+  sub file_rewrite(;$@) {
+  unlink $_[0] if $_[0]; 
+  return &file_append;
+}
+
   END { close( $fh{$_} ) for keys %fh; }
 }
 
