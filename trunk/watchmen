@@ -251,30 +251,31 @@ sub alarmed {
     restart_hard_kill_sleep => 5,
     stop_hard               => sub {
       my ($s) = @_;
-      return unless process_check($s);
+{{      last unless process_check($s);
       my $flag = $config{tmp} . 'hard.' . $s . '.stop';
       unless ( -e $flag ) {
         file_rewrite $flag, $$;
         printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
         sleep $svc{$s}{restart_hard_stop_sleep};
-        unlink $flag;
+        #unlink $flag;
       } else {
         printlog 'hard', 'flag exists', $flag;
       }
       $flag = $config{tmp} . 'hard.' . $s . '.kill';
       unless ( -e $flag ) {
         prog_run('ps');
-        return unless process_check($s);
+        last unless process_check($s);
         file_rewrite $flag, $$;
         printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
         sleep $svc{$s}{restart_hard_kill_sleep};
-        unlink $flag;
+        #unlink $flag;
       } else {
         printlog 'hard', 'flag exists', $flag;
       }
       prog_run('ps');
-      return unless process_check($s);
+      last unless process_check($s);
       printlog 'warn', $s, 'kill-9', $svc{$s}{process}, `killall -9 $svc{$s}{process}`;
+      }}
       unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
     },
   },
