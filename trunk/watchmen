@@ -252,15 +252,46 @@ sub alarmed {
     stop_hard               => sub {
       my ($s) = @_;
       return unless process_check($s);
+      my $flag = $config{tmp}.'hard.'.$s.'.stop';
+unless (-e $flag) {
+file_rewrite $flag, $$;
       printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
       sleep $svc{$s}{restart_hard_stop_sleep};
+      unlink $flag;
+} else {
+printlog 'hard', 'flag exists', $flag;
+}
+$flag =  $config{tmp}.'hard.'.$s.'.kill';
+
+unless (-e $flag) {
+
       prog_run('ps');
       return unless process_check($s);
+
+
+file_rewrite $flag, $$;
       printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
       sleep $svc{$s}{restart_hard_kill_sleep};
+      unlink $flag;
+      
+#      }
+} else {
+printlog 'hard', 'flag exists', $flag;
+}      
+#$flag =  $config{tmp}.'hard.'.$s.'.kill';
+
+#unless (-e $flag) {
+#file_rewrite $flag, $$;
+      
       prog_run('ps');
       return unless process_check($s);
       printlog 'warn', $s, 'kill-9', $svc{$s}{process}, `killall -9 $svc{$s}{process}`;
+#      unlink $flag;
+
+#      }
+
+unlink $_ for $config{tmp}.'hard.'.$s.'.stop', $config{tmp}.'hard.'.$s.'.kill';
+      
     },
   },
   restart_hard => sub {
@@ -282,6 +313,7 @@ sub alarmed {
   log_dbg     => 0,
   log_port    => 0,
   log_http    => 0,
+  tmp =>  ( $root_path =~ /watch/ ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),
   http_code => qr/^[1-4]\d\d$/,
   human   => {
     date => sub {    #v1
