@@ -278,7 +278,7 @@ sub alarmed {
   log_port    => 0,
   log_http    => 0,
   http_code => qr/^[1-4]\d\d$/,
-  'human'   => {
+  human   => {
     date => sub {    #v1
       my $d = $_[1] || '/';
       return strftime "%Y${d}%m${d}%d", localtime( $_[0] || time() );
@@ -379,8 +379,9 @@ sub param_to_config ($) {
     next unless $w =~ s/^-//;
     my $where = ( $w =~ s/^-// ? '$config' : '$svc' );
     #    $v =~ s/^NUL$//;
-    return 0 unless defined($w) and defined($v);
-    local @_ = split( /__/, $w ) or return 0;
+    #next unless defined($w) and defined($v);
+    $v = 1 unless defined $v;
+    local @_ = split( /__/, $w ) or next;
     eval( $where . join( '', map { '{$_[' . $_ . ']}' } ( 0 .. $#_ ) ) . ' = $v;' );
   }
 }
