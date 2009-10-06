@@ -251,31 +251,34 @@ sub alarmed {
     restart_hard_kill_sleep => 5,
     stop_hard               => sub {
       my ($s) = @_;
-{{      last unless process_check($s);
-      my $flag = $config{tmp} . 'hard.' . $s . '.stop';
-      unless ( -e $flag ) {
-        file_rewrite $flag, $$;
-        printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
-        sleep $svc{$s}{restart_hard_stop_sleep};
-        #unlink $flag;
-      } else {
-        printlog 'hard', 'flag exists', $flag;
+      {
+        {
+          last unless process_check($s);
+          my $flag = $config{tmp} . 'hard.' . $s . '.stop';
+          unless ( -e $flag ) {
+            file_rewrite $flag, $$;
+            printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
+            sleep $svc{$s}{restart_hard_stop_sleep};
+            #unlink $flag;
+          } else {
+            printlog 'hard', 'flag exists', $flag;
+          }
+          $flag = $config{tmp} . 'hard.' . $s . '.kill';
+          unless ( -e $flag ) {
+            prog_run('ps');
+            last unless process_check($s);
+            file_rewrite $flag, $$;
+            printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
+            sleep $svc{$s}{restart_hard_kill_sleep};
+            #unlink $flag;
+          } else {
+            printlog 'hard', 'flag exists', $flag;
+          }
+          prog_run('ps');
+          last unless process_check($s);
+          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, `killall -9 $svc{$s}{process}`;
+        }
       }
-      $flag = $config{tmp} . 'hard.' . $s . '.kill';
-      unless ( -e $flag ) {
-        prog_run('ps');
-        last unless process_check($s);
-        file_rewrite $flag, $$;
-        printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
-        sleep $svc{$s}{restart_hard_kill_sleep};
-        #unlink $flag;
-      } else {
-        printlog 'hard', 'flag exists', $flag;
-      }
-      prog_run('ps');
-      last unless process_check($s);
-      printlog 'warn', $s, 'kill-9', $svc{$s}{process}, `killall -9 $svc{$s}{process}`;
-      }}
       unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
     },
   },
@@ -298,7 +301,7 @@ sub alarmed {
   log_dbg     => 0,
   log_port    => 0,
   log_http    => 0,
-  tmp => ( $root_path =~ /watch/ ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),
+  tmp => ( $root_path =~ /watch/ ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ), #==farcolorer
   http_code => qr/^[1-4]\d\d$/,
   human     => {
     date => sub {    #v1
@@ -544,7 +547,7 @@ prog()->{func} = sub {
     s/^\s+//;
     chomp;
     local @_ = split /\s+/, $_, @format;
-    printlog( 'bad pid', join ':', @_ ), next unless $_[ $format{PID} ] =~ /^\d+$/;
+    printlog( 'bad pid', join ':', @_ ), next unless $_[ $format{PID} ] =~ /^\d+$/; #== farcolorer
     my $ps = $ps{ $_[ $format{PID} ] } ||= {};
     @{$ps}{@format} = @_;
     $ps->{psline} = $psline++;
