@@ -290,7 +290,7 @@ sub alarmed {
     printlog 'warn', $s, 'start', `$svc{$s}{start}`;
   },
   #log_all=>'+',
-  log_default => '+' . ( $root_path =~ /watch/ ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
+  log_default => '+' . ( $root_path =~ /watch/i ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
   log_rc      => 0,
   log_rcorder => 0,
@@ -301,7 +301,7 @@ sub alarmed {
   log_dbg     => 0,
   log_port    => 0,
   log_http    => 0,
-  tmp => ( $root_path =~ /watch/ ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ), #==farcolorer
+  tmp => ( $root_path =~ /watch/i ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ), #==farcolorer
   http_code => qr/^[1-4]\d\d$/,
   human     => {
     date => sub {    #v1
@@ -343,7 +343,7 @@ sub alarmed {
       }
   },
 );
-for ( "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", "${root_path}watchmen.conf" ) {
+for ( ($root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
   $config{config} ||= $_, last
     if -r;
 }
