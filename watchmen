@@ -20,32 +20,32 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
 =head1 SYNOPSIS
 
- watchmen.pl [--configkey=configvalue] [-svcname__svckey=svcvalue] [command[=param]] ...
+ watchmen [--configkey=configvalue] [-svcname__svckey=svcvalue] [command[=param]] ...
  where command:
  check[=svc] stop[=svc] restart[=svc] list avail help
 
 =head1 EXAMPLES
 
 #check and restart default services
- watchmen.pl
+ watchmen
 
  #list of enabled services
- watchmen.pl list
+ watchmen list
 
  #list of available services
- watchmen.pl avail
+ watchmen avail
 
 #full log
- watchmen.pl --log_all
+ watchmen --log_all
 
 #reatart apache if more than 5 httpd proc, dont check sshd, load custom config
- watchmen.pl -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
+ watchmen -apache__max_proc=5 -sshd__enable=0 --config=/path/to/my/config
 
  #check only 2 services with log
- watchmen.pl check=named check=mysql --log_all 
+ watchmen check=named check=mysql --log_all 
 
 #stop all EXCEPT sshd
- watchmen.pl stop
+ watchmen stop
 
 =head1 INSTALL
 
@@ -55,7 +55,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  perl -MCPAN -e "install LWP, URI"
 
 
- cp watchmen.pl /usr/local/bin/watchmen ; cp watchmen.conf.dist /usr/local/etc/watchmen.conf
+ cp watchmen /usr/local/bin/ ; cp watchmen.conf.dist /usr/local/etc/watchmen.conf
  edit /usr/local/etc/watchmen.conf
 
  run watchmen twice. second run must be quiet (all ok) if not - edit config
@@ -111,7 +111,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
