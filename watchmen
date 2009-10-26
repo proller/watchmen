@@ -376,8 +376,9 @@ for ( ($root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/
   nmbd        => n( rcdname    => 'samba',      rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1 ),
   smbd        => n( rcdname    => 'samba',      rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1 ),
   nfsd        => n( rcconfname => 'nfs_server', tcp        => 2049 ),
-  mpd4        => n,
-  mpd5        => n,
+  mpd        => n(rcconfname => 'mpd'),
+  mpd4        => n(rcconfname => 'mpd'),
+  mpd5        => n(rcconfname => 'mpd'),
   healthd     => n,
   smartd      => n,
   watchquagga => n
