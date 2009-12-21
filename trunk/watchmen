@@ -117,7 +117,8 @@ use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
 use Cwd;
 use Data::Dumper;
-$Data::Dumper::Sortkeys = 1;
+$Data::Dumper::Sortkeys = $Data::Dumper::Useqq = $Data::Dumper::Indent = 1;
+
 our ( %config, %svc );
 our $root_path;
 
@@ -161,6 +162,15 @@ sub get_params(;$$) {                                        #v7
   }
   END { close( $fh{$_} ) for keys %fh; }
 }
+
+sub file_read ($) {
+  open my $f, '<', $_[0] or return;
+    local $/ = undef;
+      my $ret = <$f>;
+        close $f;
+          return $ret;
+          }
+          
 
 sub printlog (@) {    #v5
   return if defined $config{ 'log_' . $_[0] } and !$config{ 'log_' . $_[0] } and !$config{'log_all'};
@@ -263,12 +273,19 @@ sub alarmed {
           } else {
             printlog 'hard', 'flag exists', $flag;
           }
+my $pid;
+$pid =     file_read($svc{$s}{pidfile}),
+$pid =~ s/\D//g,
+
+if $svc{$s}{pidfile};
+$svc{$s}{pid} ||= $pid ;
+printlog 'dev', 'pid', $s, $svc{$s}{pid};
           $flag = $config{tmp} . 'hard.' . $s . '.kill';
           unless ( -e $flag ) {
             prog_run('ps');
             last unless process_check($s);
             file_rewrite $flag, $$;
-            printlog 'warn', $s, 'kill', $svc{$s}{process}, `killall $svc{$s}{process}`;
+            printlog 'warn', $s, 'kill', $svc{$s}{process}, $svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
             sleep $svc{$s}{restart_hard_kill_sleep};
             #unlink $flag;
           } else {
@@ -276,7 +293,7 @@ sub alarmed {
           }
           prog_run('ps');
           last unless process_check($s);
-          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, `killall -9 $svc{$s}{process}`;
+          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, $svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
         }
       }
       unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
@@ -299,6 +316,7 @@ sub alarmed {
   log_info    => 0,
   log_ps      => 0,
   log_dbg     => 0,
+  log_dmp     => 0,
   log_port    => 0,
   log_http    => 0,
   tmp => ( $root_path =~ /watch/i ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ), #==farcolorer
@@ -507,6 +525,9 @@ prog()->{func} = sub {
     $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
     $svc{$s}{rcconf} ||= $s;
     $svc{$s}{name}   ||= $s;
+    
+#    my $pid ;    $pid=     file_read($svc{$s}{pidfile}) if $svc{$s}{pidfile};$pid =~ s/\D//g;$svc{$s}{pid} ||= $pid ;printlog 'dev', 'pid', $s, $svc{$s}{pidfile},$svc{$s}{pid};
+
   }
 };
 prog('rcorder')->{force} = 1;
@@ -729,5 +750,5 @@ unless (caller) {
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
 }
-#printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog;
+#printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog, \%ps;
 1;
