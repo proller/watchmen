@@ -31,6 +31,10 @@
 #or
 #%{$svc{mysql}} = (%{$svc{mysql}}, max=>{map {$_=>2_000_000} qw(VSZ RSS)});
 #
+#kill via pid:
+#chomp(my $hostname = `/bin/hostname`);
+#$svc{mysql}{pidfile} = "/var/db/mysql/$hostname.pid";
+#
 #check port, code than custom content:
 #$svc{apache22}{http_check}='<html';
 #%{$svc{nginx}} = (%{$svc{nginx}}, http_check=>'<html' );
