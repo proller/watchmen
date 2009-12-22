@@ -111,14 +111,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.03'; #. '.' . ( split( ' ', '$Revision$' ) )[1]
+our $VERSION = '0.03';    . '.' . ( split( ' ', '$Revision$' ) )[1]
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
 use Cwd;
 use Data::Dumper;
 $Data::Dumper::Sortkeys = $Data::Dumper::Useqq = $Data::Dumper::Indent = 1;
-
 our ( %config, %svc );
 our $root_path;
 
@@ -165,12 +164,11 @@ sub get_params(;$$) {                                        #v7
 
 sub file_read ($) {
   open my $f, '<', $_[0] or return;
-    local $/ = undef;
-      my $ret = <$f>;
-        close $f;
-          return $ret;
-          }
-          
+  local $/ = undef;
+  my $ret = <$f>;
+  close $f;
+  return $ret;
+}
 
 sub printlog (@) {    #v5
   return if defined $config{ 'log_' . $_[0] } and !$config{ 'log_' . $_[0] } and !$config{'log_all'};
@@ -273,13 +271,10 @@ sub alarmed {
           } else {
             printlog 'hard', 'flag exists', $flag;
           }
-my $pid;
-$pid =     file_read($svc{$s}{pidfile}),
-$pid =~ s/\D//g,
-
-if $svc{$s}{pidfile};
-$svc{$s}{pid} ||= $pid ;
-printlog 'dev', 'pid', $s, $svc{$s}{pid};
+          my $pid;
+          $pid = file_read( $svc{$s}{pidfile} ), $pid =~ s/\D//g, if $svc{$s}{pidfile};
+          $svc{$s}{pid} ||= $pid;
+          printlog 'dev', 'pid', $s, $svc{$s}{pid};
           $flag = $config{tmp} . 'hard.' . $s . '.kill';
           unless ( -e $flag ) {
             prog_run('ps');
@@ -293,7 +288,8 @@ printlog 'dev', 'pid', $s, $svc{$s}{pid};
           }
           prog_run('ps');
           last unless process_check($s);
-          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, $svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
+          printlog 'warn', $s, 'kill-9', $svc{$s}{process},
+            $svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
         }
       }
       unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
@@ -319,10 +315,10 @@ printlog 'dev', 'pid', $s, $svc{$s}{pid};
   log_dmp     => 0,
   log_port    => 0,
   log_http    => 0,
-  tmp => ( $root_path =~ /watch/i ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ), #==farcolorer
+  tmp => ( $root_path =~ /watch/i ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),    #==farcolorer
   http_code => qr/^[1-4]\d\d$/,
   human     => {
-    date => sub {    #v1
+    date => sub {                                                                        #v1
       my $d = $_[1] || '/';
       return strftime "%Y${d}%m${d}%d", localtime( $_[0] || time() );
     },
@@ -333,7 +329,7 @@ printlog 'dev', 'pid', $s, $svc{$s}{pid};
     date_time => sub {
       return human( 'date', $_[0] || time(), $_[2] ) . ( $_[1] || '-' ) . human( 'time', $_[0] || time(), $_[3] );
     },
-    float => sub {    #v1
+    float => sub {                                                                       #v1
       return ( $_[0] < 8 and $_[0] - int( $_[0] ) )
         ? sprintf( '%.' . ( $_[0] < 1 ? 3 : $_[0] < 3 ? 2 : 1 ) . 'f', $_[0] )
         : int( $_[0] );
@@ -343,7 +339,7 @@ printlog 'dev', 'pid', $s, $svc{$s}{pid};
       ( $now = human( 'float', abs( int($now) - $now ) ) ) =~ s/^0//;
       return ( $now or '' );
     },
-    time_period => sub {    #v0
+    time_period => sub {                                                                 #v0
       my ( $tim, $delim, $sign ) = @_;
       $sign = '-', $tim = -$tim if $tim < 0;
       return '' if $tim == 0 or $tim > 1000000000;
@@ -361,9 +357,8 @@ printlog 'dev', 'pid', $s, $svc{$s}{pid};
       }
   },
 );
-for ( ($root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
-  $config{config} ||= $_, last
-    if -r;
+for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
+  $config{config} ||= $_, last if -r;
 }
 {
   my $order = 100000;
@@ -394,9 +389,9 @@ for ( ($root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/
   nmbd        => n( rcdname    => 'samba',      rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1 ),
   smbd        => n( rcdname    => 'samba',      rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1 ),
   nfsd        => n( rcconfname => 'nfs_server', tcp        => 2049 ),
-  mpd        => n(rcconfname => 'mpd'),
-  mpd4        => n(rcconfname => 'mpd'),
-  mpd5        => n(rcconfname => 'mpd'),
+  mpd         => n( rcconfname => 'mpd' ),
+  mpd4        => n( rcconfname => 'mpd' ),
+  mpd5        => n( rcconfname => 'mpd' ),
   healthd     => n,
   smartd      => n,
   watchquagga => n
@@ -525,9 +520,7 @@ prog()->{func} = sub {
     $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
     $svc{$s}{rcconf} ||= $s;
     $svc{$s}{name}   ||= $s;
-    
-#    my $pid ;    $pid=     file_read($svc{$s}{pidfile}) if $svc{$s}{pidfile};$pid =~ s/\D//g;$svc{$s}{pid} ||= $pid ;printlog 'dev', 'pid', $s, $svc{$s}{pidfile},$svc{$s}{pid};
-
+#my $pid ;    $pid=     file_read($svc{$s}{pidfile}) if $svc{$s}{pidfile};$pid =~ s/\D//g;$svc{$s}{pid} ||= $pid ;printlog 'dev', 'pid', $s, $svc{$s}{pidfile},$svc{$s}{pid};
   }
 };
 prog('rcorder')->{force} = 1;
@@ -569,7 +562,7 @@ prog()->{func} = sub {
     s/^\s+//;
     chomp;
     local @_ = split /\s+/, $_, @format;
-    printlog( 'bad pid', join ':', @_ ), next unless $_[ $format{PID} ] =~ /^\d+$/; #== farcolorer
+    printlog( 'bad pid', join ':', @_ ), next unless $_[ $format{PID} ] =~ /^\d+$/;    #== farcolorer
     my $ps = $ps{ $_[ $format{PID} ] } ||= {};
     @{$ps}{@format} = @_;
     $ps->{psline} = $psline++;
