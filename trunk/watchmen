@@ -111,7 +111,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.03';    . '.' . ( split( ' ', '$Revision$' ) )[1]
+our $VERSION = '0.03'    . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
@@ -276,11 +276,15 @@ sub alarmed {
           $svc{$s}{pid} ||= $pid;
           printlog 'dev', 'pid', $s, $svc{$s}{pid};
           $flag = $config{tmp} . 'hard.' . $s . '.kill';
+my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
+my $flags;
+my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
           unless ( -e $flag ) {
             prog_run('ps');
             last unless process_check($s);
             file_rewrite $flag, $$;
-            printlog 'warn', $s, 'kill', $svc{$s}{process}, $svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
+#            printlog 'warn', $s, 'kill', $svc{$s}{process}, $svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
+            printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",`$kill$flags$what`;            #$svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
             sleep $svc{$s}{restart_hard_kill_sleep};
             #unlink $flag;
           } else {
@@ -288,8 +292,9 @@ sub alarmed {
           }
           prog_run('ps');
           last unless process_check($s);
-          printlog 'warn', $s, 'kill-9', $svc{$s}{process},
-            $svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
+          $flags = '-9 ';
+          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, "$kill$flags$what",`$kill$flags$what`;
+#            $svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
         }
       }
       unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
@@ -712,6 +717,12 @@ prog('avail')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'avail', ':', watchable sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc;
 };
+
+prog('dump')->{func} = sub {
+  local $config{log_all} = 1;
+#print 'dump';
+printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog, \%ps;
+};
 prog('help')->{func} = sub {
   local $config{log_all} = 1;
   print "\n Avail commands:\n";
@@ -743,5 +754,4 @@ unless (caller) {
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
 }
-#printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog, \%ps;
 1;
