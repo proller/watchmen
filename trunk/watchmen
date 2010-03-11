@@ -114,7 +114,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.03'    . '.' . ( split( ' ', '$Revision$' ) )[1];
+our $VERSION = '0.03' . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
@@ -279,15 +279,17 @@ sub alarmed {
           $svc{$s}{pid} ||= $pid;
           printlog 'dev', 'pid', $s, $svc{$s}{pid};
           $flag = $config{tmp} . 'hard.' . $s . '.kill';
-my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
-my $flags;
-my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
+          my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
+          my $flags;
+          my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
+
           unless ( -e $flag ) {
             prog_run('ps');
             last unless process_check($s);
             file_rewrite $flag, $$;
-#            printlog 'warn', $s, 'kill', $svc{$s}{process}, $svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
-            printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",`$kill$flags$what`;            #$svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
+            #printlog 'warn', $s, 'kill', $svc{$s}{process}, $svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
+            printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",
+              `$kill$flags$what`;    #$svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
             sleep $svc{$s}{restart_hard_kill_sleep};
             #unlink $flag;
           } else {
@@ -296,8 +298,8 @@ my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
           prog_run('ps');
           last unless process_check($s);
           $flags = '-9 ';
-          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, "$kill$flags$what",`$kill$flags$what`;
-#            $svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
+          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, "$kill$flags$what", `$kill$flags$what`;
+          #$svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
         }
       }
       unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
@@ -373,29 +375,29 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   sub n(@) { return { order => $order -= 10, @_ }; }
 }
 %svc = (
-  sshd    => n( tcp => 22, no_stop => 1 ),
+  sshd      => n( tcp => 22, no_stop => 1 ),
   watchdogd => n,
-  devd => n(no_stop => 1,),
-  moused => n(no_stop => 1,),
+  devd    => n( no_stop => 1, ),
+  moused  => n( no_stop => 1, ),
   syslogd => n,
   cron    => n,
-  amd => n,
-  lpd       => n,
+  amd     => n,
+  lpd     => n,
   inetd   => n,
-  named     => n( udp => 53 ),
-  dhcpd    => n( rcdname => 'isc-dhcpd',    udp => 67 ),
-  rtadvd => n,
+  named   => n( udp     => 53 ),
+  dhcpd     => n( rcdname => 'isc-dhcpd', udp => 67 ),
+  rtadvd    => n,
   ntpd      => n,
-  snmpd    => n,
+  snmpd     => n,
   snmptrapd => n,
-  bsnmpd   => n,
-  arpwatch => n,
-  smartd      => n,
-  sendmail_submit=>n(process => 'sendmail', rcdname => 'sendmail', tcp=>25),
-  sendmail_clientmqueue=>n(process => 'sendmail', rcdname => 'sendmail'),
-  mpd         => n( rcconfname => 'mpd' ),
-  mpd4        => n( rcconfname => 'mpd' ),
-  mpd5        => n( rcconfname => 'mpd' ),
+  bsnmpd    => n,
+  arpwatch  => n,
+  smartd    => n,
+  sendmail_submit       => n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ),
+  sendmail_clientmqueue => n( process    => 'sendmail', rcdname => 'sendmail' ),
+  mpd                   => n( rcconfname => 'mpd' ),
+  mpd4                  => n( rcconfname => 'mpd' ),
+  mpd5                  => n( rcconfname => 'mpd' ),
   apache     => n( process => 'httpd',    http => 80 ),
   apache2    => n( process => 'httpd',    http => 80 ),
   apache22   => n( process => 'httpd',    http => 80 ),     #tcp=>80 #https=>443
@@ -403,26 +405,26 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   memcached  => n,
   rsyncd     => n( process => 'rsync',    tcp  => 873 ),
   postgresql => n( process => 'postgres', tcp  => 5432 ),
-  mysql   => n( process => 'mysqld', rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
-  svnserve => n( process => 'svnserve.bin', tcp => 3690 ),
-  proftpd => n( tcp     => 21 ),
-  nmbd        => n( rcdname    => 'samba',      rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1 ),
-  smbd        => n( rcdname    => 'samba',      rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1 ),
-  iscsi_target => n( process => 'iscsi-target', tcp => 3260, udp => 3260 ),
-  nfsd        => n( rcconfname => 'nfs_server', tcp        => 2049 ),
-  healthd     => n,
-  watchquagga => n
+  mysql    => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
+  svnserve => n( process => 'svnserve.bin', tcp     => 3690 ),
+  proftpd  => n( tcp     => 21 ),
+  nmbd         => n( rcdname    => 'samba',        rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1 ),
+  smbd         => n( rcdname    => 'samba',        rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1 ),
+  iscsi_target => n( process    => 'iscsi-target', tcp        => 3260,    udp => 3260 ),
+  nfsd         => n( rcconfname => 'nfs_server',   tcp        => 2049 ),
+  healthd      => n,
+  watchquagga  => n
   , # for zebra, bgpd and others use in rc.d: watchquagga_flags=" --daemon --unresponsive-restart --restart-all '/usr/local/etc/rc.d/quagga restart' zebra bgpd"
-  clamd     => n( rcdname => 'clamav-clamd', rcconfname => 'clamav_clamd' ),
-  freshclam => n( rcdname => 'clamav-freshclam', rcconfname => 'clamav_freshclam' ),
+  clamd      => n( rcdname => 'clamav-clamd',     rcconfname => 'clamav_clamd' ),
+  freshclam  => n( rcdname => 'clamav-freshclam', rcconfname => 'clamav_freshclam' ),
   nut        => n( process => 'upsd' ),
   nut_upslog => n( process => 'upslog' ),
   nut_upsmon => n( process => 'upsmon' ),
-  icecast    => n( rcdname => 'icecast2', http => 8000 ),
-  ipa          => n,
-  tinyproxy    => n,                                                          #tcp => 8888
-  uhub  => n,
-  verlihub=>n,
+  icecast    => n( rcdname => 'icecast2',         http       => 8000 ),
+  ipa        => n,
+  tinyproxy  => n,         #tcp => 8888
+  uhub       => n,
+  verlihub   => n,
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
@@ -729,11 +731,10 @@ prog('avail')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'avail', ':', watchable sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc;
 };
-
 prog('dump')->{func} = sub {
   local $config{log_all} = 1;
-#print 'dump';
-printlog 'dmp', ${root_path}, Dumper  \%config, \%svc, \%prog, \%ps;
+  #print 'dump';
+  printlog 'dmp', ${root_path}, Dumper \%config, \%svc, \%prog, \%ps;
 };
 prog('help')->{func} = sub {
   local $config{log_all} = 1;
