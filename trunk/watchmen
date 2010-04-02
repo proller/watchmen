@@ -403,6 +403,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   apache22   => n( process => 'httpd',    http => 80 ),     #tcp=>80 #https=>443
   nginx      => n( http    => 80 ),
   memcached  => n,
+  redis      => n(process=>'redis-server',),
   rsyncd     => n( process => 'rsync',    tcp  => 873 ),
   postgresql => n( process => 'postgres', tcp  => 5432 ),
   mysql    => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
