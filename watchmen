@@ -93,6 +93,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  more default ports [tested!]
  ?.pid usage?
  identify by process desc (sendmail)
+ count errors on keep, no action if errors>maxerrors
 
 =head1 COPYRIGHT
 
@@ -252,6 +253,7 @@ sub alarmed {
   rcconf  => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
   #log_screen=>1,
   maxexttime => 30,
+  sleep   => 10,
   default    => {
     min_proc                => 1,
     max_proc                => 1000,
@@ -277,7 +279,7 @@ sub alarmed {
           my $pid;
           $pid = file_read( $svc{$s}{pidfile} ), $pid =~ s/\D//g, if $svc{$s}{pidfile};
           $svc{$s}{pid} ||= $pid;
-          printlog 'dev', 'pid', $s, $svc{$s}{pid};
+          #printlog 'dev', 'pid', $s, $svc{$s}{pid};
           $flag = $config{tmp} . 'hard.' . $s . '.kill';
           my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
           my $flags;
@@ -744,6 +746,15 @@ prog('help')->{func} = sub {
     print "$prog ";
   }
   print "\n";
+};
+prog('keep')->{func} = sub {
+  prog('check')->{force} = 1;
+  while (1) {
+    printlog('runprogs');
+    progs();
+    printlog('sleep');
+    sleep $config{sleep};
+  }
 };
 
 sub prog_run($;@) {
