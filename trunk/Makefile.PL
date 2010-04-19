@@ -19,6 +19,7 @@ README: $_{VERSION_FROM}
 
 fullclean: distclean clean
 	rm -f \$(DISTNAME)-*.tar.gz *.bak *.old *.log MANIFEST README
+	rm -Rf nytprof*
 
 release: fullclean docs manifest metafile dist
 }
