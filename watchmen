@@ -22,7 +22,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
  watchmen [--configkey=configvalue] [-svcname__svckey=svcvalue] [command[=param]] ...
  where command:
- check[=svc] stop[=svc] restart[=svc] list avail help
+ check[=svc] stop[=svc] restart[=svc] keep[=svc] list avail help
 
 =head1 EXAMPLES
 
@@ -46,6 +46,12 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
 #stop all EXCEPT sshd
  watchmen stop
+
+#check services every 5 seconds without exit
+ watchmen keep --sleep=5
+#same, only for mysqld
+ watchmen keep=mysqld --sleep=5
+
 
 =head1 INSTALL
 
@@ -93,7 +99,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  more default ports [tested!]
  ?.pid usage?
  identify by process desc (sendmail)
- count errors on keep, no action if errors>maxerrors
+ keep: step by step skip fail checks (http->tcp->proc)
 
 =head1 COPYRIGHT
 
@@ -122,7 +128,7 @@ use POSIX qw(strftime);
 use Cwd;
 use Data::Dumper;
 $Data::Dumper::Sortkeys = $Data::Dumper::Useqq = $Data::Dumper::Indent = 1;
-our ( %config, %svc );
+our ( %config, %svc, %stat );
 our $root_path;
 
 BEGIN {
@@ -260,6 +266,8 @@ sub alarmed {
     sleep                   => 1,
     host                    => '127.0.0.1',    # for tcp, udp
     timeout                 => 3,              # for tcp, udp
+    chain_noaction          => 10,             # keep: stop restarting after X fails
+    chain_try_every         => 100,            # keep: but try to restart every Y cycles
     restart_hard_stop_sleep => 5,
     restart_hard_kill_sleep => 5,
     stop_hard               => sub {
@@ -409,6 +417,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   rsyncd     => n( process => 'rsync',    tcp  => 873 ),
   postgresql => n( process => 'postgres', tcp  => 5432 ),
   mysql    => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
+  sphinxsearch => n(process => 'searchd', tcp=>9312),
   svnserve => n( process => 'svnserve.bin', tcp     => 3690 ),
   proftpd  => n( tcp     => 21 ),
   nmbd         => n( rcdname    => 'samba',        rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1 ),
@@ -473,6 +482,7 @@ sub process_check ($) {
 sub action ($$;@) {
   my ( $s, $action ) = ( shift, shift );
   next unless $action;
+  ++$stat{action}{$s}{$action};
   printlog(
     'action', $s, $action,
     $svc{$s}{$action},
@@ -557,13 +567,15 @@ prog()->{func} = sub {
       : $svc{$_};
   }
   my $order = 200000;
-  for ( @{ $config{rcd} } ) {
+  if ($config{rcorder}) {
+   for ( @{ $config{rcd} } ) {
     for (`$config{rcorder} $_* 2>/dev/null`) {
       chomp;
       my $p = $rcd{$_};
       my @p = ref $p eq 'ARRAY' ? sort @$p : $p;
       $_->{order} = $order -= 10, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ), for @p;
     }
+   }
   }
 };
 prog('ps')->{force} = 1;
@@ -709,9 +721,16 @@ prog('check')->{func} = sub {
         last;
       }
     }
-    #printlog( 'action', $s, $svc{$a}{action}, );
+    #printlog( 'action', $s, $svc{$s}{action}, );
+    if ($svc{$s}{action}) {
+      ++$stat{chain}{$s}{$svc{$s}{action}} ;
+      #printlog 'chain', $stat{chain}{$s}{$svc{$s}{action}} , $svc{$s}{chain_noaction} , !($stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every});
+    } else {
+      delete $stat{chain}{$s}{$svc{$s}{action}} if exists $stat{chain}{$s};
+    }
+    next if exists $stat{chain}{$s} and $stat{chain}{$s}{$svc{$s}{action}} > $svc{$s}{chain_noaction} and $stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every};
     $svc{$s}{action} ||= $svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
-    action( $s, $svc{$s}{action} );
+    action($s, $svc{$s}{action});
   }
 };
 
@@ -736,8 +755,7 @@ prog('avail')->{func} = sub {
 };
 prog('dump')->{func} = sub {
   local $config{log_all} = 1;
-  #print 'dump';
-  printlog 'dmp', ${root_path}, Dumper \%config, \%svc, \%prog, \%ps;
+  printlog 'dmp', $root_path, Dumper \(%config, %svc, %prog, %ps, %stat);
 };
 prog('help')->{func} = sub {
   local $config{log_all} = 1;
@@ -747,14 +765,18 @@ prog('help')->{func} = sub {
   }
   print "\n";
 };
+
 prog('keep')->{func} = sub {
   prog('check')->{force} = 1;
-  while (1) {
-    printlog('runprogs');
-    progs();
-    printlog('sleep');
+  my $stop=0;
+  $SIG{KILL} = $SIG{TERM} = $SIG{INT} = $SIG{QUIT} = sub {++$stop};
+  $SIG{INFO} = sub { printlog 'stat', Dumper \%stat if %stat;  };
+  printlog('keep', "checking every $config{sleep} seconds", Dumper \@_);
+  while (!$stop) {
+    progs(@_);
     sleep $config{sleep};
   }
+  printlog 'stat', Dumper \%stat if %stat;
 };
 
 sub prog_run($;@) {
@@ -763,10 +785,10 @@ sub prog_run($;@) {
   $prog{$prog}{func}->(@_) if ref $prog{$prog}{func} eq 'CODE';
 }
 
-sub progs () {
+sub progs() {
   for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
     next unless $prog{$prog}{force};
-    prog_run($prog);
+    prog_run($prog, @_);
   }
 }
 unless (caller) {
