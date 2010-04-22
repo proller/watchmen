@@ -58,5 +58,10 @@
 #  http_code    => 200, # we want THIS code
 #  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
 #);
+#
+# $svc{moused}  = n( no_stop => 1, ); # [tmp] must look at -e moused_port="/dev/psm0" 
+# $svc{sendmail_submit} = n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ); # cant correctly parse with sendmail_enable="NONE"
+#
+
 
 1;
