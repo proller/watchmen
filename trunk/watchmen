@@ -101,6 +101,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  ?.pid usage?
  identify by process desc (sendmail)
  keep: step by step skip fail checks (http->tcp->proc)
+ group actions,: stop all bluetooth. cfg: 'group' or [qw(group 2 3)]
 
 =head1 COPYRIGHT
 
@@ -438,6 +439,10 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   tinyproxy  => n,         #tcp => 8888
   uhub       => n,
   verlihub   => n,
+  hcsecd     => n( group => 'bluetooth',), #bluetooth
+  sdpd       => n( group => 'bluetooth',), #bluetooth
+  bthidd     => n( group => 'bluetooth',), #bluetooth
+  rfcomm_pppd_server => n(process =>  'rfcomm_pppd', group => 'bluetooth',), #bluetooth
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
