@@ -7,8 +7,6 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
   local %_ = %{ ref $_[0] eq 'HASH' ? shift : {} };
   for (@_) {
     tr/+/ /, s/%([a-f\d]{2})/pack'C',hex$1/gei for my ( $k, $v ) = /^([^=]+=?)=(.+)$/ ? ( $1, $2 ) : ( /^([^=]*)=?$/, /^-/ );
-    #$_{"${1}_mode$2"} .= $3 if $k =~ s/^(.+?)(\d*)([=!><~@]+)$/$1$2/;
-    #$k =~ s/(\d*)$/($1 < 100 ? $1 + 1 : last)/e while defined $_{$k};
     $_{$k} = $v;
   }
   wantarray ? %_ : \%_;
@@ -46,6 +44,9 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
  #stop all EXCEPT sshd
  watchmen stop
+
+ #stop all services with bluetooth group 
+ watchmen stop=bluetooth
 
  #check services every 5 seconds without exit
  watchmen keep --sleep=5
@@ -101,7 +102,8 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  ?.pid usage?
  identify by process desc (sendmail)
  keep: step by step skip fail checks (http->tcp->proc)
- group actions,: stop all bluetooth. cfg: 'group' or [qw(group 2 3)]
+ group once for samba
+ multiplie group cfg: 'group' or [qw(group 2 3)]
 
 =head1 COPYRIGHT
 
@@ -123,7 +125,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.04';# . '.' . ( split( ' ', '$Revision$' ) )[1];
+our $VERSION = '0.04' . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
@@ -415,20 +417,21 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   apache22   => n( process => 'httpd',    http => 80 ),     #tcp=>80 #https=>443
   nginx      => n( http    => 80 ),
   memcached  => n,
-  redis      => n(process=>'redis-server',),
+  redis      => n( process=>'redis-server',),
   rsyncd     => n( process => 'rsync',    tcp  => 873 ),
   postgresql => n( process => 'postgres', tcp  => 5432 ),
   mysql    => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
   sphinxsearch => n(process => 'searchd', tcp=>9312),
   svnserve => n( process => 'svnserve.bin', tcp     => 3690 ),
   proftpd  => n( tcp     => 21 ),
-  nmbd         => n( rcdname    => 'samba',        rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1 ),
-  smbd         => n( rcdname    => 'samba',        rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1 ),
+  nmbd         => n( group=>'samba', rcdname    => 'samba',        rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
+  smbd         => n( group=>'samba', rcdname    => 'samba',        rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1, ),
+  winbindd     => n( group=>'samba', rcdname    => 'samba',        force_restart => 1,  ),
   iscsi_target => n( process    => 'iscsi-target', tcp        => 3260,    udp => 3260 ),
   nfsd         => n( rcconfname => 'nfs_server',   tcp        => 2049 ),
   healthd      => n,
   watchquagga  => n
-  , # for zebra, bgpd and others use in rc.d: watchquagga_flags=" --daemon --unresponsive-restart --restart-all '/usr/local/etc/rc.d/quagga restart' zebra bgpd"
+  , # for zebra, bgpd and others use in rc.conf: watchquagga_flags=" --daemon --unresponsive-restart --restart-all '/usr/local/etc/rc.d/quagga restart' zebra bgpd"
   clamd      => n( rcdname => 'clamav-clamd',     rcconfname => 'clamav_clamd' ),
   freshclam  => n( rcdname => 'clamav-freshclam', rcconfname => 'clamav_freshclam' ),
   nut        => n( process => 'upsd' ),
@@ -439,10 +442,10 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   tinyproxy  => n,         #tcp => 8888
   uhub       => n,
   verlihub   => n,
-  hcsecd     => n( group => 'bluetooth',), #bluetooth
-  sdpd       => n( group => 'bluetooth',), #bluetooth
-  bthidd     => n( group => 'bluetooth',), #bluetooth
-  rfcomm_pppd_server => n(process =>  'rfcomm_pppd', group => 'bluetooth',), #bluetooth
+  hcsecd     => n( group => 'bluetooth',), 
+  sdpd       => n( group => 'bluetooth',), 
+  bthidd     => n( group => 'bluetooth',), 
+  rfcomm_pppd_server => n(group => 'bluetooth', process =>  'rfcomm_pppd', ), 
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
@@ -463,10 +466,22 @@ sub param_to_config ($) {
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
-sub services() {
-  sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b }
-    grep { $svc{$_}{enable} and $svc{$_}{rcd} and -x $svc{$_}{rcd} } keys %svc;
+sub ordered {
+  sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } @_;
 }
+
+sub services() {
+  ordered grep { $svc{$_}{enable} and $svc{$_}{rcd} and -x $svc{$_}{rcd} } keys %svc;
+}
+
+sub watchable (@) {
+  grep { $svc{$_}{process} or $svc{$_}{tcp} or $svc{$_}{udp} or $svc{$_}{http} or $svc{$_}{https} } @_;
+}
+
+sub group ($) {
+  grep { $svc{$_}{group} eq $_[0] } watchable services;
+}
+
 param_to_config( scalar get_params() );
 {
   my ( $current, $order );
@@ -740,12 +755,14 @@ prog('check')->{func} = sub {
   }
 };
 
-sub watchable (@) {
-  grep { $svc{$_}{process} or $svc{$_}{tcp} or $svc{$_}{udp} or $svc{$_}{http} or $svc{$_}{https} } @_;
-}
+
 prog('stop')->{func} = sub {
   #local $config{log_all} = 1;
-  printlog 'stop', ':', $@, action( $_, 'stop_hard' ), for $_[0] || grep { !$svc{$_}{no_stop} } watchable reverse services;
+  local $_ = $_[0];
+  local @_ =  grep { !$svc{$_}{no_stop} } watchable $_[0] || services;
+  @_ = group $_ unless @_;
+  @_ = reverse ordered @_;
+  printlog 'stop', ':', $@, action( $_, 'stop_hard' ), for @_;
 };
 prog('restart')->{func} = sub {
   prog_run( 'stop',  @_ );
@@ -757,7 +774,7 @@ prog('list')->{func} = sub {
 };
 prog('avail')->{func} = sub {
   local $config{log_all} = 1;
-  printlog 'avail', ':', watchable sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } keys %svc;
+  printlog 'avail', ':', watchable ordered keys %svc;
 };
 prog('dump')->{func} = sub {
   local $config{log_all} = 1;
