@@ -63,7 +63,7 @@
 # $svc{sendmail_submit} = n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ); # cant correctly parse with sendmail_enable="NONE"
 #
 
-# Special case : specify your iface for correct start, cannot be easy parsed from rc.cnf
-# $svc{wpa_supplicant} = n( start_params=>'em0', enable => 1, );
+#useful:
+# $svc{wpa_supplicant} = n( start_params=>'em0', enable => 1, ); # if autodetect fail
 
 1;
