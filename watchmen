@@ -446,7 +446,24 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   sdpd       => n( group => 'bluetooth',), 
   bthidd     => n( group => 'bluetooth',), 
   rfcomm_pppd_server => n(group => 'bluetooth', process =>  'rfcomm_pppd', ), 
-  #wpa_supplicant => n( start_params=>'em0' ),
+  wpa_supplicant => n( #start_params=>'em0' 
+    defaults => sub {
+      for my $ifconfig (grep {/^ifconfig/i} keys %svc) {
+      my $aliased =  $ifconfig =~ /_(\w+\d+)$/ ?  $1 : undef;
+        for  (grep{ /^\w+\d+$/ and $svc{$ifconfig}{$_} =~ /\bWPA\b/i } $aliased, keys %{$svc{$ifconfig}}) {
+          my $if = $aliased || $_;
+          #printlog('info', "only one interface for wpa_supplicant supports, using [$svc{wpa_supplicant}{start_params}]") if $svc{wpa_supplicant}{start_params};
+          $svc{wpa_supplicant}{start_params} ||= $if;
+          $svc{wpa_supplicant}{enable} ||= 'YES';
+          printlog('dbg', "wpa_supplicant enabled for interface $if");
+        }
+      }
+    }
+  ),
+  #'avahi-daemon' => n(rcdname => 'avahi-daemon'),
+  avahi_daemon => n(process => 'avahi-daemon', rcdname => 'avahi-daemon'), # udp=>5353
+  avahi_dnsconfd => n(process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd'),
+  
 );
 if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
@@ -524,12 +541,12 @@ prog()->{func} = sub {
     while (<$rcconfh>) {
       if ( my ( $svc, $key, $value ) = /^\s*(\w+)_(\S+)\s*=\s*"([^"]+)"/i ) {    #"mcedit
         $value = 0 if $value =~ /^no(?:ne)?$/i;
-        printlog( 'dbg', "rc.conf $key [$svc]" ) if $value eq 'enable';
+        printlog( 'dbg', "rc.conf $key [$svc]=[$value]" ) if $value eq 'enable';
         if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
-          printlog( 'rc', $svc, $key, $_ ), $svc{$_}{$key} = $value for @_;
+          printlog( 'rc', $svc, $key, $_, $value), $svc{$_}{$key} = $value for @_;
         } else {
           $svc{$svc}{rcsource} = $rcconf unless $svc{$svc};
-          printlog( 'rc', $svc, $key, ), $svc{$svc}{$key} = $value;              #, next if exists $svc{$svc};
+          printlog( 'rc', $svc, $key, $value), $svc{$svc}{$key} = $value;              #, next if exists $svc{$svc};
         }
       }
     }
@@ -541,8 +558,10 @@ prog('defaults')->{force} = 1;
 prog()->{func} = sub {
   for my $s ( keys %svc ) {
     $svc{$s}{$_} ||= $config{default}{$_} for keys %{ $config{default} };
+    $svc{$s}{defaults}->() if ref $svc{$s}{defaults} eq 'CODE';
     next unless $svc{$s}{enable};
     $svc{$s}{process} ||= $s unless $svc{$s}{rcsource};
+    #($svc{$s}{rcdname} ||= $s) =~ tr/-/_/;
     $svc{$s}{rcdname} ||= $s;
     unless ( $svc{$s}{rcd} ) {
       for my $rcd ( @{ $config{rcd} } ) {
