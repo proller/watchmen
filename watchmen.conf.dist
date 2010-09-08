@@ -1,7 +1,8 @@
 # THIS IS PERL FILE! USE CORRECT SYNTAX
 #
 use strict;
-our (%svc, %config);  
+our ( %svc, %config );
+
 #copy this file to watchmen.conf and edit
 #cp watchmen.conf.dist watchmen.conf
 #
@@ -64,11 +65,28 @@ our (%svc, %config);
 #  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
 #);
 #
-# $svc{moused}  = n( no_stop => 1, ); # [tmp] must look at -e moused_port="/dev/psm0" 
+# $svc{moused}  = n( no_stop => 1, ); # [tmp] must look at -e moused_port="/dev/psm0"
 # $svc{sendmail_submit} = n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ); # cant correctly parse with sendmail_enable="NONE"
 #
 
 #useful:
 # $svc{wpa_supplicant} = n( start_params=>'em0', enable => 1, ); # if autodetect fail
+
+#database dbi query test (requires DBD::mysql module)
+#$svc{mysql}{dbi} = 'mysql';
+=custom query test (try with --log_all)
+$svc{mysql}{check} = sub {
+    if ( watchmen::use_try('DBI') and $_[0]->{dbh} ) {
+        my $q = '42';
+        my $sth = $_[0]->{dbh}->prepare("SELECT $q") || return 'restart';
+        $sth->execute;
+        while ( my $ref = $sth->fetchrow_hashref() ) {
+            printlog 'info', 'db answer', Dumper $ref;
+            return undef if $ref->{$q} eq $q;
+            printlog( 'warn', 'strange answer', Dumper $ref);
+        }
+    }
+};
+=cut
 
 1;

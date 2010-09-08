@@ -391,6 +391,13 @@ sub alarmed {
       return ( $sign . int($tim) . $delim . "Y" );
       }
   },
+  dbi_params => {mysql => [
+            qw(host port database mysql_client_found_rows mysql_compression mysql_connect_timeout mysql_read_default_file mysql_read_default_group mysql_socket
+              mysql_ssl mysql_ssl_client_key mysql_ssl_client_cert mysql_ssl_ca_file mysql_ssl_ca_path mysql_ssl_cipher
+              mysql_local_infile mysql_embedded_options mysql_embedded_groups)
+        ],
+  },
+  
 );
 for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
   $config{config} ||= $_, last if -r;
@@ -476,7 +483,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   avahi_dnsconfd => n(process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd'),
   
 );
-if ( $config{config} ) { (do $config{config} and ++$config{config_run}) or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
+if ( $config{config} ) { (do $config{config} and !$@ and ++$config{config_run}) or printlog( 'err', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
 our ( %prog, %ps );
 
@@ -494,14 +501,21 @@ sub param_to_config ($) {
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
+
 sub array (@) {
+  local @_ = map {  ref $_ eq 'ARRAY' ? @$_ : $_ } @_;
+  wantarray ? @_ : \@_;
+}
+
+sub array_any (@) {
   local @_ = map {  ref $_ eq 'ARRAY' ? @$_ : ref $_ eq 'HASH' ? sort keys %$_ : ref $_ eq 'CODE' ? $_->() : $_} @_;
   wantarray ? @_ : \@_;
-} 
+}
+
 
 sub in ($@){
   my $v = shift;
-  grep { $v eq $_ } &array;
+  grep { $v eq $_ } &array_any;
 }
 
 sub ordered(@_) {
@@ -598,7 +612,7 @@ prog()->{func} = sub {
     #($svc{$s}{rcdname} ||= $s) =~ tr/-/_/;
     $svc{$s}{rcdname} ||= $s;
     unless ( $svc{$s}{rcd} ) {
-     for my $rcd (array $config{rcd}) {
+     for my $rcd (array_any $config{rcd}) {
         last if $svc{$s}{rcd};
         for my $rcdext ( @{ $config{rcdext} } ) {
           if ( -x $rcd . $svc{$s}{rcdname} . $rcdext ) {
@@ -636,22 +650,13 @@ prog()->{func} = sub {
 prog('rcorder')->{force} = 1;
 prog()->{func} = sub {
   my %rcd;
-  for ( sort keys %svc ) {
-    $rcd{ $svc{$_}{rcd} } =
-        $rcd{ $svc{$_}{rcd} }
-      ? ref $rcd{ $svc{$_}{rcd} } eq 'ARRAY' 
-        ? [ @{ $rcd{ $svc{$_}{rcd} } }, $svc{$_} ] 
-        : [ $rcd{ $svc{$_}{rcd} }, $svc{$_} ]
-      : $svc{$_};
-  }
+  pushex $rcd{ $svc{$_}{rcd} }, $svc{$_} for ( sort keys %svc );
   my $order = 200000;
   if ($config{rcorder}) {
-   for ( array $config{rcd}  ) {
+   for ( array_any $config{rcd}  ) {
     for (`$config{rcorder} $_* 2>/dev/null`) {
       chomp;
-      my $p = $rcd{$_};
-      my @p = ref $p eq 'ARRAY' ? sort @$p : $p;
-      $_->{order} = $order -= 10, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ), for @p;
+      $_->{order} = $order -= 10, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ), for array $rcd{$_};
     }
    }
   }
@@ -719,7 +724,7 @@ prog('check')->{func} = sub {
       $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
       next unless $svc{$s}{$prot};
       next if $svc{$s}{action};
-      for my $port ( ref $svc{$s}{$prot} eq 'ARRAY' ? @{ $svc{$s}{$prot} } : $svc{$s}{$prot} ) {
+      for my $port ( array $svc{$s}{$prot} ) {
         printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
         my $time   = time();
         my $socket = new IO::Socket::INET(
@@ -738,7 +743,7 @@ prog('check')->{func} = sub {
     for my $prot (qw(http https)) {
       next unless $svc{$s}{$prot};
       next if $svc{$s}{action};
-    PORTOK: for my $port ( ref $svc{$s}{$prot} eq 'ARRAY' ? @{ $svc{$s}{$prot} } : $svc{$s}{$prot} ) {
+    PORTOK: for my $port ( array $svc{$s}{$prot} ) {
         $port = 80  if $port == 1 and $prot eq 'http';
         $port = 443 if $port == 1 and $prot eq 'https';
         printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
@@ -782,12 +787,9 @@ prog('check')->{func} = sub {
         #!      printlog( 'port', "connected per", $time ), next if $socket;
         #!      printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
         my $check = $svc{$s}{ $prot . '_check' };
-        my @check;
         if ( ref $check eq 'CODE' ) { next if $check->($result) }
         elsif ($check) {
-          if   ( ref $check eq 'ARRAY' ) { @check = @$check }
-          else                           { @check = $check; }
-          for my $check (@check) {
+          for my $check (array $check) {
             $check = qr/\Q$check/ if ref $check ne 'Regexp';
             printlog( 'http', 'check match', $check ), next PORTOK if $result =~ $check;
           }
@@ -807,10 +809,67 @@ prog('check')->{func} = sub {
       delete $stat{chain}{$s}{$svc{$s}{action}} if exists $stat{chain}{$s};
     }
     next if exists $stat{chain}{$s} and $stat{chain}{$s}{$svc{$s}{action}} > $svc{$s}{chain_noaction} and $stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every};
-    $svc{$s}{action} ||= $svc{$s}{check}->() if ref $svc{$s}{check} eq 'CODE';
+    $svc{$s}{action} ||= dbi_check($svc{$s}) if $svc{$s}{dbi};
+    $svc{$s}{check}->($svc{$s}) if !$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE';
     action($s, $svc{$s}{action});
   }
 };
+
+
+sub dbi_check ($) {
+    my ($ss) = @_;
+    if ( use_try('DBI') ) {
+
+        my $params = $_[0]->{params} || $config{dbi_params}{$_[0]->{dbi}};
+        local %_ = (
+            params => $params,
+
+            (
+                map { $_ => $_[0]->{$_} }
+                  grep { defined $_[0]->{$_} } qw(user pass dbi),
+                @$params
+            ),
+            (
+                map { $_ => $_[0]->{tcp} }
+                grep { defined $_[0]->{tcp} } qw(port)
+            ),
+
+        );
+        local @_ = (
+            "dbi:$_{'dbi'}:"
+              . join(
+                ';',
+                map( { $_ . '=' . $_{$_} } grep { defined( $_{$_} ) }
+                      @{ $_{'params'} } )
+              ),
+            $_{'user'},
+            $_{'pass'},
+            $_{'connect_params'}
+        );
+        printlog( 'info', 'dbi', @_ );
+        $ss->{dbh} ||= DBI->connect(@_);
+        printlog( 'err', 'no dbh', $DBI::err, $DBI::errstr ), return 'restart'
+          if !$ss->{dbh}
+              or $DBI::err
+              or $DBI::errstr;
+
+        my $q   = '1+1';
+        my $sth = $ss->{dbh}->prepare("SELECT $q");
+        printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart'
+          if !$sth;
+        $sth->execute;
+        while ( my $ref = $sth->fetchrow_hashref() ) {
+
+            printlog 'info', 'db answer', Dumper $ref;
+            return undef if $ref->{$q} eq 2;
+            printlog( 'warn', 'strange answer', Dumper $ref);
+        }
+
+        #return 'restart';
+
+    }
+}
+
 
 
 prog('stop')->{func} = sub {
@@ -897,4 +956,16 @@ unless (caller) {
   prog_run( $_->[0], $_->[1] ) for @wantrun;
   #printlog 'dev', Dumper \%ENV;
 }
+
+#useful in config
+sub use_try ($;@) {
+  ( my $path = ( my $module = shift ) . '.pm' ) =~ s{::}{/}g;
+  $INC{$path} or eval 'use ' . $module . ' qw(' . ( join ' ', @_ ) . ');1;' and $INC{$path};
+}
+
+
+
 1;
+
+
+
