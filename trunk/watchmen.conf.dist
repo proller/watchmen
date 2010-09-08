@@ -1,5 +1,7 @@
 # THIS IS PERL FILE! USE CORRECT SYNTAX
 #
+use strict;
+our (%svc, %config);  
 #copy this file to watchmen.conf and edit
 #cp watchmen.conf.dist watchmen.conf
 #
@@ -41,6 +43,9 @@
 #have no rc.conf vars, no restart:
 #$svc{communigate} = n(rcdname => 'CommuniGate.sh', process => 'CGServer', enable => 1, restart=>0);
 #
+#group your services for bulk actions
+#unless ($config{config_run}) { watchmen::pushex $svc{$_}{group}, 'web' for qw(apache22 apache2 apache nginx mysql memcached redis postgresql sphinxsearch); }
+#and use   watchmen keep=web   or   watchmen stop=web
 #
 #$svc{VeryComplexService} = n(
 #  enable      => 1,

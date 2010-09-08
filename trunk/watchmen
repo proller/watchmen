@@ -21,6 +21,7 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  watchmen [--configkey=configvalue] [-svcname__svckey=svcvalue] [command[=param]] ...
  where command:
  check[=svc] stop[=svc] restart[=svc] keep[=svc] list avail help
+ where svc can be name of service or name of group. if group - all services in this group will be affected
 
 =head1 EXAMPLES
 
@@ -32,6 +33,9 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
  #list of available services
  watchmen avail
+
+ #list of available groups
+ watchmen group
 
  #full log
  watchmen --log_all
@@ -47,6 +51,12 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
 
  #stop all services with bluetooth group 
  watchmen stop=bluetooth
+
+ #stop all services in /etc/rc.d
+ watchmen stop=system
+
+ #stop all services in /usr/local/etc/rc.d
+ watchmen stop=local
 
  #check services every 5 seconds without exit
  watchmen keep --sleep=5
@@ -131,7 +141,7 @@ use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
 use Cwd;
 use Data::Dumper;
-$Data::Dumper::Sortkeys = $Data::Dumper::Useqq = $Data::Dumper::Indent = 1;
+$Data::Dumper::Sortkeys = $Data::Dumper::Useqq = $Data::Dumper::Indent = $Data::Dumper::Terse = 1;
 our ( %config, %svc, %stat );
 our $root_path;
 
@@ -257,7 +267,8 @@ sub alarmed {
 }
 %config = (
   rcorder => 'rcorder',
-  rcd     => [qw(/etc/rc.d/ /usr/local/etc/rc.d/)],
+  rcd     => #[qw(/etc/rc.d/ /usr/local/etc/rc.d/)],
+            {'/etc/rc.d/' => { group => 'system' },  '/usr/local/etc/rc.d/' => { group => 'local' }, },
   rcdext  => [ '', '.sh' ],
   ps      => $^O eq 'freebsd' ? 'ps vxaww' : 'ps xaww',
   rcconf  => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
@@ -465,18 +476,17 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   avahi_dnsconfd => n(process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd'),
   
 );
-if ( $config{config} ) { do $config{config} or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
+if ( $config{config} ) { (do $config{config} and ++$config{config_run}) or printlog( 'info', "using default config because $!, $@ in [$config{config}]" ); }
 else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
 our ( %prog, %ps );
 
+ 
 sub param_to_config ($) {
   my ($param) = @_;
   for my $w ( keys %$param ) {
     my $v = $param->{$w};
     next unless $w =~ s/^-//;
     my $where = ( $w =~ s/^-// ? '$config' : '$svc' );
-    #$v =~ s/^NUL$//;
-    #next unless defined($w) and defined($v);
     $v = 1 unless defined $v;
     local @_ = split( /__/, $w ) or next;
     eval( $where . join( '', map { '{$_[' . $_ . ']}' } ( 0 .. $#_ ) ) . ' = $v;' );
@@ -484,7 +494,17 @@ sub param_to_config ($) {
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
-sub ordered {
+sub array (@) {
+  local @_ = map {  ref $_ eq 'ARRAY' ? @$_ : ref $_ eq 'HASH' ? sort keys %$_ : ref $_ eq 'CODE' ? $_->() : $_} @_;
+  wantarray ? @_ : \@_;
+} 
+
+sub in ($@){
+  my $v = shift;
+  grep { $v eq $_ } &array;
+}
+
+sub ordered(@_) {
   sort { $svc{$b}{order} <=> $svc{$a}{order} || $a cmp $b } @_;
 }
 
@@ -497,7 +517,19 @@ sub watchable (@) {
 }
 
 sub group ($) {
-  grep { $svc{$_}{group} eq $_[0] } watchable services;
+  grep { in $_[0], $svc{$_}{group} } watchable services;
+}
+
+sub group_or_name ($) {
+  group($_[0]) ? group($_[0]) : $_[0]
+}
+sub group_or_name_or_services ($) {
+  group_or_name($_[0]) ?  group_or_name($_[0]) : watchable services
+}
+
+sub pushex (\$@) {
+  local $_ = shift;
+  $$_ = $$_ ? [ref $$_ eq 'ARRAY' ? @$$_ : $$_, @_ ] : @_ > 1 ? \@_ : $_[0];
 }
 
 param_to_config( scalar get_params() );
@@ -552,8 +584,10 @@ prog()->{func} = sub {
     }
     close $rcconfh;
   }
-  do $config{config} if $config{config};
+  do $config{config} and ++$config{config_run} if $config{config};
 };
+
+
 prog('defaults')->{force} = 1;
 prog()->{func} = sub {
   for my $s ( keys %svc ) {
@@ -564,11 +598,14 @@ prog()->{func} = sub {
     #($svc{$s}{rcdname} ||= $s) =~ tr/-/_/;
     $svc{$s}{rcdname} ||= $s;
     unless ( $svc{$s}{rcd} ) {
-      for my $rcd ( @{ $config{rcd} } ) {
+     for my $rcd (array $config{rcd}) {
         last if $svc{$s}{rcd};
         for my $rcdext ( @{ $config{rcdext} } ) {
           if ( -x $rcd . $svc{$s}{rcdname} . $rcdext ) {
             $svc{$s}{rcd} ||= $rcd . $svc{$s}{rcdname} . $rcdext;
+            if ( ref $config{rcd} eq 'HASH' ) {
+              pushex $svc{$s}{$_}, $config{rcd}{$rcd}{$_} for keys %{$config{rcd}{$rcd}};
+            }
             last;
           }
         }
@@ -609,7 +646,7 @@ prog()->{func} = sub {
   }
   my $order = 200000;
   if ($config{rcorder}) {
-   for ( @{ $config{rcd} } ) {
+   for ( array $config{rcd}  ) {
     for (`$config{rcorder} $_* 2>/dev/null`) {
       chomp;
       my $p = $rcd{$_};
@@ -652,10 +689,10 @@ prog()->{func} = sub {
   #printlog 'newps', Dumper \%ps;
 };
 prog('check')->{func} = sub {
-  my $s = $_[0];
-  for my $s ( $s || services ) {
-    next unless $svc{$s}{process};
+  for my $s (group_or_name_or_services $_[0]) {
+
     printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
+    next unless $svc{$s}{process};
     my $founded;
     for my $p ( process_check $s) {
       for my $max ( grep { $svc{$s}{max}{$_} } keys %{ $svc{$s}{max} || {} } ) {
@@ -677,7 +714,7 @@ prog('check')->{func} = sub {
       $svc{$s}{action} ||= 'restart';
     }
   }
-  for my $s ( $s || services ) {
+  for my $s ( group_or_name_or_services $_[0] ) {
     for my $prot (qw(tcp udp)) {
       $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
       next unless $svc{$s}{$prot};
@@ -778,9 +815,7 @@ prog('check')->{func} = sub {
 
 prog('stop')->{func} = sub {
   #local $config{log_all} = 1;
-  local $_ = $_[0];
-  local @_ =  grep { !$svc{$_}{no_stop} } watchable $_[0] || services;
-  @_ = group $_ unless @_;
+  local @_ = group_or_name_or_services $_[0];
   @_ = reverse ordered @_;
   printlog 'stop', ':', $@, action( $_, 'stop_hard' ), for @_;
 };
@@ -796,6 +831,17 @@ prog('avail')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'avail', ':', watchable ordered keys %svc;
 };
+
+prog('group')->{func} = sub {
+  local $config{log_all} = 1;
+  local %_;
+  for my $s (watchable services) {
+    pushex $_{$_}, $s  for grep {$_} array $svc{$s}{group};
+  }
+  printlog 'group', Dumper \%_;
+};
+
+
 prog('dump')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'dmp', $root_path, Dumper \(%config, %svc, %prog, %ps, %stat);
@@ -809,17 +855,23 @@ prog('help')->{func} = sub {
   print "\n";
 };
 
+sub print_stat () {
+  printlog 'stat', Dumper \%stat if %stat;
+}
+
 prog('keep')->{func} = sub {
   prog('check')->{force} = 1;
   my $stop=0;
   $SIG{KILL} = $SIG{TERM} = $SIG{INT} = $SIG{QUIT} = sub {++$stop};
-  $SIG{INFO} = sub { printlog 'stat', Dumper \%stat if %stat;  };
-  printlog('keep', "checking every $config{sleep} seconds", Dumper \@_);
+  $SIG{INFO} = \&print_stat;
+  printlog('keep', "checking every $config{sleep} seconds", @_);
   while (!$stop) {
-    progs(@_);
+    #progs(@_);
+    prog_run('ps', @_);
+    prog_run('check', @_);
     sleep $config{sleep};
   }
-  printlog 'stat', Dumper \%stat if %stat;
+  print_stat();
 };
 
 sub prog_run($;@) {
