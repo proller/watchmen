@@ -267,14 +267,14 @@ sub alarmed {
 }
 %config = (
   rcorder => 'rcorder',
-  rcd     => #[qw(/etc/rc.d/ /usr/local/etc/rc.d/)],
-            {'/etc/rc.d/' => { group => 'system' },  '/usr/local/etc/rc.d/' => { group => 'local' }, },
-  rcdext  => [ '', '.sh' ],
-  ps      => $^O eq 'freebsd' ? 'ps vxaww' : 'ps xaww',
-  rcconf  => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
+  rcd =>                         #[qw(/etc/rc.d/ /usr/local/etc/rc.d/)],
+    { '/etc/rc.d/' => { group => 'system' }, '/usr/local/etc/rc.d/' => { group => 'local' }, },
+  rcdext => [ '', '.sh' ],
+  ps => $^O eq 'freebsd' ? 'ps vxaww' : 'ps xaww',
+  rcconf => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
   #log_screen=>1,
   maxexttime => 30,
-  sleep   => 10,
+  sleep      => 10,
   default    => {
     min_proc                => 1,
     max_proc                => 1000,
@@ -307,7 +307,6 @@ sub alarmed {
           my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
           my $flags;
           my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
-
           unless ( -e $flag ) {
             prog_run('ps');
             last unless process_check($s);
@@ -391,13 +390,13 @@ sub alarmed {
       return ( $sign . int($tim) . $delim . "Y" );
       }
   },
-  dbi_params => {mysql => [
-            qw(host port database mysql_client_found_rows mysql_compression mysql_connect_timeout mysql_read_default_file mysql_read_default_group mysql_socket
-              mysql_ssl mysql_ssl_client_key mysql_ssl_client_cert mysql_ssl_ca_file mysql_ssl_ca_path mysql_ssl_cipher
-              mysql_local_infile mysql_embedded_options mysql_embedded_groups)
-        ],
+  dbi_params => {
+    mysql => [
+      qw(host port database mysql_client_found_rows mysql_compression mysql_connect_timeout mysql_read_default_file mysql_read_default_group mysql_socket
+        mysql_ssl mysql_ssl_client_key mysql_ssl_client_cert mysql_ssl_ca_file mysql_ssl_ca_path mysql_ssl_cipher
+        mysql_local_infile mysql_embedded_options mysql_embedded_groups)
+    ],
   },
-  
 );
 for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
   $config{config} ||= $_, last if -r;
@@ -409,14 +408,14 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
 %svc = (
   sshd      => n( tcp => 22, no_stop => 1 ),
   watchdogd => n,
-  devd    => n( no_stop => 1, ),
-#  moused  => n( no_stop => 1, ),
-  syslogd => n,
-  cron    => n,
-  amd     => n,
-  lpd     => n,
-  inetd   => n,
-  named   => n( udp     => 53 ),
+  devd => n( no_stop => 1, ),
+  #moused  => n( no_stop => 1, ),
+  syslogd   => n,
+  cron      => n,
+  amd       => n,
+  lpd       => n,
+  inetd     => n,
+  named     => n( udp => 53 ),
   dhcpd     => n( rcdname => 'isc-dhcpd', udp => 67 ),
   rtadvd    => n,
   ntpd      => n,
@@ -425,28 +424,28 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   bsnmpd    => n,
   arpwatch  => n,
   smartd    => n,
-#  sendmail_submit       => n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ),
+  #sendmail_submit       => n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ),
   sendmail_clientmqueue => n( process    => 'sendmail', rcdname => 'sendmail' ),
   mpd                   => n( rcconfname => 'mpd' ),
   mpd4                  => n( rcconfname => 'mpd' ),
   mpd5                  => n( rcconfname => 'mpd' ),
-  apache     => n( process => 'httpd',    http => 80 ),
-  apache2    => n( process => 'httpd',    http => 80 ),
-  apache22   => n( process => 'httpd',    http => 80 ),     #tcp=>80 #https=>443
-  nginx      => n( http    => 80 ),
-  memcached  => n,
-  redis      => n( process=>'redis-server',),
-  rsyncd     => n( process => 'rsync',    tcp  => 873 ),
-  postgresql => n( process => 'postgres', tcp  => 5432 ),
-  mysql    => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
-  sphinxsearch => n(process => 'searchd', tcp=>9312),
-  svnserve => n( process => 'svnserve.bin', tcp     => 3690 ),
-  proftpd  => n( tcp     => 21 ),
-  nmbd         => n( group=>'samba', rcdname    => 'samba',        rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
-  smbd         => n( group=>'samba', rcdname    => 'samba',        rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1, ),
-  winbindd     => n( group=>'samba', rcdname    => 'samba',        force_restart => 1,  ),
-  iscsi_target => n( process    => 'iscsi-target', tcp        => 3260,    udp => 3260 ),
-  nfsd         => n( rcconfname => 'nfs_server',   tcp        => 2049 ),
+  apache                => n( process    => 'httpd',    http    => 80 ),
+  apache2               => n( process    => 'httpd',    http    => 80 ),
+  apache22              => n( process    => 'httpd',    http    => 80 ),           #tcp=>80 #https=>443
+  nginx                 => n( http       => 80 ),
+  memcached             => n,
+  redis      => n( process => 'redis-server', ),
+  rsyncd     => n( process => 'rsync', tcp => 873 ),
+  postgresql => n( process => 'postgres', tcp => 5432 ),
+  mysql      => n( process => 'mysqld', rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
+  sphinxsearch => n( process => 'searchd',      tcp => 9312 ),
+  svnserve     => n( process => 'svnserve.bin', tcp => 3690 ),
+  proftpd      => n( tcp     => 21 ),
+  nmbd     => n( group => 'samba', rcdname => 'samba', rcconfname    => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
+  smbd     => n( group => 'samba', rcdname => 'samba', rcconfname    => 'samba', tcp => [ 139, 445 ], force_restart => 1, ),
+  winbindd => n( group => 'samba', rcdname => 'samba', force_restart => 1, ),
+  iscsi_target => n( process    => 'iscsi-target', tcp => 3260, udp => 3260 ),
+  nfsd         => n( rcconfname => 'nfs_server',   tcp => 2049 ),
   healthd      => n,
   watchquagga  => n
   , # for zebra, bgpd and others use in rc.conf: watchquagga_flags=" --daemon --unresponsive-restart --restart-all '/usr/local/etc/rc.d/quagga restart' zebra bgpd"
@@ -460,34 +459,36 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   tinyproxy  => n,         #tcp => 8888
   uhub       => n,
   verlihub   => n,
-  hcsecd     => n( group => 'bluetooth',), 
-  sdpd       => n( group => 'bluetooth',), 
-  bthidd     => n( group => 'bluetooth',), 
-  rfcomm_pppd_server => n(group => 'bluetooth', process =>  'rfcomm_pppd', ), 
-  wpa_supplicant => n( #start_params=>'em0' 
+  hcsecd             => n( group => 'bluetooth', ),
+  sdpd               => n( group => 'bluetooth', ),
+  bthidd             => n( group => 'bluetooth', ),
+  rfcomm_pppd_server => n( group => 'bluetooth', process => 'rfcomm_pppd', ),
+  wpa_supplicant => n(    #start_params=>'em0'
     defaults => sub {
-      for my $ifconfig (grep {/^ifconfig/i} keys %svc) {
-      my $aliased =  $ifconfig =~ /_(\w+\d+)$/ ?  $1 : undef;
-        for  (grep{ /^\w+\d+$/ and $svc{$ifconfig}{$_} =~ /\bWPA\b/i } $aliased, keys %{$svc{$ifconfig}}) {
+      for my $ifconfig ( grep { /^ifconfig/i } keys %svc ) {
+        my $aliased = $ifconfig =~ /_(\w+\d+)$/ ? $1 : undef;
+        for ( grep { /^\w+\d+$/ and $svc{$ifconfig}{$_} =~ /\bWPA\b/i } $aliased, keys %{ $svc{$ifconfig} } ) {
           my $if = $aliased || $_;
-          #printlog('info', "only one interface for wpa_supplicant supports, using [$svc{wpa_supplicant}{start_params}]") if $svc{wpa_supplicant}{start_params};
+#printlog('info', "only one interface for wpa_supplicant supports, using [$svc{wpa_supplicant}{start_params}]") if $svc{wpa_supplicant}{start_params};
           $svc{wpa_supplicant}{start_params} ||= $if;
           $svc{wpa_supplicant}{enable} ||= 'YES';
-          printlog('dbg', "wpa_supplicant enabled for interface $if");
+          printlog( 'dbg', "wpa_supplicant enabled for interface $if" );
         }
       }
     }
   ),
   #'avahi-daemon' => n(rcdname => 'avahi-daemon'),
-  avahi_daemon => n(process => 'avahi-daemon', rcdname => 'avahi-daemon'), # udp=>5353
-  avahi_dnsconfd => n(process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd'),
-  
+  avahi_daemon   => n( process => 'avahi-daemon',   rcdname => 'avahi-daemon' ),     # udp=>5353
+  avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
 );
-if ( $config{config} ) { (do $config{config} and !$@ and ++$config{config_run}) or printlog( 'err', "using default config because $!, $@ in [$config{config}]" ); }
-else                   { printlog( 'info', "using default config because watchmen.conf not exist" ); }
+if ( $config{config} ) {
+  ( do $config{config} and !$@ and ++$config{config_run} )
+    or printlog( 'err', "using default config because $!, $@ in [$config{config}]" );
+} else {
+  printlog( 'info', "using default config because watchmen.conf not exist" );
+}
 our ( %prog, %ps );
 
- 
 sub param_to_config ($) {
   my ($param) = @_;
   for my $w ( keys %$param ) {
@@ -501,19 +502,17 @@ sub param_to_config ($) {
 }
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
-
 sub array (@) {
-  local @_ = map {  ref $_ eq 'ARRAY' ? @$_ : $_ } @_;
+  local @_ = map { ref $_ eq 'ARRAY' ? @$_ : $_ } @_;
   wantarray ? @_ : \@_;
 }
 
 sub array_any (@) {
-  local @_ = map {  ref $_ eq 'ARRAY' ? @$_ : ref $_ eq 'HASH' ? sort keys %$_ : ref $_ eq 'CODE' ? $_->() : $_} @_;
+  local @_ = map { ref $_ eq 'ARRAY' ? @$_ : ref $_ eq 'HASH' ? sort keys %$_ : ref $_ eq 'CODE' ? $_->() : $_ } @_;
   wantarray ? @_ : \@_;
 }
 
-
-sub in ($@){
+sub in ($@) {
   my $v = shift;
   grep { $v eq $_ } &array_any;
 }
@@ -533,19 +532,13 @@ sub watchable (@) {
 sub group ($) {
   grep { in $_[0], $svc{$_}{group} } watchable services;
 }
-
-sub group_or_name ($) {
-  group($_[0]) ? group($_[0]) : $_[0]
-}
-sub group_or_name_or_services ($) {
-  group_or_name($_[0]) ?  group_or_name($_[0]) : watchable services
-}
+sub group_or_name ($)             { group( $_[0] )         ? group( $_[0] )         : $_[0] }
+sub group_or_name_or_services ($) { group_or_name( $_[0] ) ? group_or_name( $_[0] ) : watchable services }
 
 sub pushex (\$@) {
   local $_ = shift;
-  $$_ = $$_ ? [ref $$_ eq 'ARRAY' ? @$$_ : $$_, @_ ] : @_ > 1 ? \@_ : $_[0];
+  $$_ = $$_ ? [ ref $$_ eq 'ARRAY' ? @$$_ : $$_, @_ ] : @_ > 1 ? \@_ : $_[0];
 }
-
 param_to_config( scalar get_params() );
 {
   my ( $current, $order );
@@ -569,8 +562,9 @@ sub action ($$;@) {
   next unless $action;
   ++$stat{action}{$s}{$action};
   printlog(
-    'action', $s, $action,
-    '[',$svc{$s}{$action}, ']',
+    'action', $s, $action, '[',
+    $svc{$s}{$action},
+    ']',
     alarmed(
       $config{maxexttime},
       sub {
@@ -589,10 +583,10 @@ prog()->{func} = sub {
         $value = 0 if $value =~ /^no(?:ne)?$/i;
         printlog( 'dbg', "rc.conf $key [$svc]=[$value]" ) if $value eq 'enable';
         if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
-          printlog( 'rc', $svc, $key, $_, $value), $svc{$_}{$key} = $value for @_;
+          printlog( 'rc', $svc, $key, $_, $value ), $svc{$_}{$key} = $value for @_;
         } else {
           $svc{$svc}{rcsource} = $rcconf unless $svc{$svc};
-          printlog( 'rc', $svc, $key, $value), $svc{$svc}{$key} = $value;              #, next if exists $svc{$svc};
+          printlog( 'rc', $svc, $key, $value ), $svc{$svc}{$key} = $value;       #, next if exists $svc{$svc};
         }
       }
     }
@@ -600,8 +594,6 @@ prog()->{func} = sub {
   }
   do $config{config} and ++$config{config_run} if $config{config};
 };
-
-
 prog('defaults')->{force} = 1;
 prog()->{func} = sub {
   for my $s ( keys %svc ) {
@@ -612,14 +604,12 @@ prog()->{func} = sub {
     #($svc{$s}{rcdname} ||= $s) =~ tr/-/_/;
     $svc{$s}{rcdname} ||= $s;
     unless ( $svc{$s}{rcd} ) {
-     for my $rcd (array_any $config{rcd}) {
+      for my $rcd ( array_any $config{rcd} ) {
         last if $svc{$s}{rcd};
         for my $rcdext ( @{ $config{rcdext} } ) {
           if ( -x $rcd . $svc{$s}{rcdname} . $rcdext ) {
             $svc{$s}{rcd} ||= $rcd . $svc{$s}{rcdname} . $rcdext;
-            if ( ref $config{rcd} eq 'HASH' ) {
-              pushex $svc{$s}{$_}, $config{rcd}{$rcd}{$_} for keys %{$config{rcd}{$rcd}};
-            }
+            if ( ref $config{rcd} eq 'HASH' ) { pushex $svc{$s}{$_}, $config{rcd}{$rcd}{$_} for keys %{ $config{rcd}{$rcd} }; }
             last;
           }
         }
@@ -628,7 +618,8 @@ prog()->{func} = sub {
         unless $svc{$s}{rcd};
       #printlog('rcd', "$s detected [$svc{$s}{rcd}]");
     }
-    $svc{$s}{start} ||= $svc{$s}{rcd} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start ' . join ' ', @{!$svc{$s}{start_params} ? [] : ref $svc{$s}{start_params} ? $svc{$s}{start_params} : [$svc{$s}{start_params}]};
+    $svc{$s}{start} ||= $svc{$s}{rcd} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start ' . join ' ',
+      @{ !$svc{$s}{start_params} ? [] : ref $svc{$s}{start_params} ? $svc{$s}{start_params} : [ $svc{$s}{start_params} ] };
     $svc{$s}{stop} ||= $svc{$s}{rcd} . ' stop';
     $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart};
     #$svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
@@ -652,13 +643,14 @@ prog()->{func} = sub {
   my %rcd;
   pushex $rcd{ $svc{$_}{rcd} }, $svc{$_} for ( sort keys %svc );
   my $order = 200000;
-  if ($config{rcorder}) {
-   for ( array_any $config{rcd}  ) {
-    for (`$config{rcorder} $_* 2>/dev/null`) {
-      chomp;
-      $_->{order} = $order -= 10, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ), for array $rcd{$_};
+  if ( $config{rcorder} ) {
+    for ( array_any $config{rcd} ) {
+      for (`$config{rcorder} $_* 2>/dev/null`) {
+        chomp;
+        $_->{order} = $order -= 10, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ),
+          for array $rcd{$_};
+      }
     }
-   }
   }
 };
 prog('ps')->{force} = 1;
@@ -694,8 +686,7 @@ prog()->{func} = sub {
   #printlog 'newps', Dumper \%ps;
 };
 prog('check')->{func} = sub {
-  for my $s (group_or_name_or_services $_[0]) {
-
+  for my $s ( group_or_name_or_services $_[0] ) {
     printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
     next unless $svc{$s}{process};
     my $founded;
@@ -789,7 +780,7 @@ prog('check')->{func} = sub {
         my $check = $svc{$s}{ $prot . '_check' };
         if ( ref $check eq 'CODE' ) { next if $check->($result) }
         elsif ($check) {
-          for my $check (array $check) {
+          for my $check ( array $check) {
             $check = qr/\Q$check/ if ref $check ne 'Regexp';
             printlog( 'http', 'check match', $check ), next PORTOK if $result =~ $check;
           }
@@ -802,76 +793,51 @@ prog('check')->{func} = sub {
       }
     }
     #printlog( 'action', $s, $svc{$s}{action}, );
-    if ($svc{$s}{action}) {
-      ++$stat{chain}{$s}{$svc{$s}{action}} ;
-      #printlog 'chain', $stat{chain}{$s}{$svc{$s}{action}} , $svc{$s}{chain_noaction} , !($stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every});
+    if ( $svc{$s}{action} ) {
+      ++$stat{chain}{$s}{ $svc{$s}{action} };
+#printlog 'chain', $stat{chain}{$s}{$svc{$s}{action}} , $svc{$s}{chain_noaction} , !($stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every});
     } else {
-      delete $stat{chain}{$s}{$svc{$s}{action}} if exists $stat{chain}{$s};
+      delete $stat{chain}{$s}{ $svc{$s}{action} } if exists $stat{chain}{$s};
     }
-    next if exists $stat{chain}{$s} and $stat{chain}{$s}{$svc{$s}{action}} > $svc{$s}{chain_noaction} and $stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every};
-    $svc{$s}{action} ||= dbi_check($svc{$s}) if $svc{$s}{dbi};
-    $svc{$s}{check}->($svc{$s}) if !$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE';
-    action($s, $svc{$s}{action});
+    next
+      if exists $stat{chain}{$s}
+        and $stat{chain}{$s}{ $svc{$s}{action} } > $svc{$s}{chain_noaction}
+        and $stat{chain}{$s}{ $svc{$s}{action} } % $svc{$s}{chain_try_every};
+    $svc{$s}{action} ||= dbi_check( $svc{$s} ) if $svc{$s}{dbi};
+    $svc{$s}{check}->( $svc{$s} ) if !$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE';
+    action( $s, $svc{$s}{action} );
   }
 };
 
-
 sub dbi_check ($) {
-    my ($ss) = @_;
-    if ( use_try('DBI') ) {
+  my ($ss) = @_;
+  if ( use_try('DBI') ) {
+    my $params = $_[0]->{params} || $config{dbi_params}{ $_[0]->{dbi} };
+    local %_ = (
+      params => $params,
+      ( map { $_ => $_[0]->{$_} } grep { defined $_[0]->{$_} } qw(user pass dbi), @$params ),
+      ( map { $_ => $_[0]->{tcp} } grep { defined $_[0]->{tcp} } qw(port) ),
+    );
+    local @_ = (
+      "dbi:$_{'dbi'}:" . join( ';', map( { $_ . '=' . $_{$_} } grep { defined( $_{$_} ) } @{ $_{'params'} } ) ),
+      $_{'user'}, $_{'pass'}, $_{'connect_params'}
+    );
+    printlog( 'info', 'dbi', @_ );
+    $ss->{dbh} ||= DBI->connect(@_);
+    printlog( 'err', 'no dbh', $DBI::err, $DBI::errstr ), return 'restart' if !$ss->{dbh} or $DBI::err or $DBI::errstr;
+    my $q   = '1+1';
+    my $sth = $ss->{dbh}->prepare("SELECT $q");
+    printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart' if !$sth;
+    $sth->execute;
 
-        my $params = $_[0]->{params} || $config{dbi_params}{$_[0]->{dbi}};
-        local %_ = (
-            params => $params,
-
-            (
-                map { $_ => $_[0]->{$_} }
-                  grep { defined $_[0]->{$_} } qw(user pass dbi),
-                @$params
-            ),
-            (
-                map { $_ => $_[0]->{tcp} }
-                grep { defined $_[0]->{tcp} } qw(port)
-            ),
-
-        );
-        local @_ = (
-            "dbi:$_{'dbi'}:"
-              . join(
-                ';',
-                map( { $_ . '=' . $_{$_} } grep { defined( $_{$_} ) }
-                      @{ $_{'params'} } )
-              ),
-            $_{'user'},
-            $_{'pass'},
-            $_{'connect_params'}
-        );
-        printlog( 'info', 'dbi', @_ );
-        $ss->{dbh} ||= DBI->connect(@_);
-        printlog( 'err', 'no dbh', $DBI::err, $DBI::errstr ), return 'restart'
-          if !$ss->{dbh}
-              or $DBI::err
-              or $DBI::errstr;
-
-        my $q   = '1+1';
-        my $sth = $ss->{dbh}->prepare("SELECT $q");
-        printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart'
-          if !$sth;
-        $sth->execute;
-        while ( my $ref = $sth->fetchrow_hashref() ) {
-
-            printlog 'info', 'db answer', Dumper $ref;
-            return undef if $ref->{$q} eq 2;
-            printlog( 'warn', 'strange answer', Dumper $ref);
-        }
-
-        #return 'restart';
-
+    while ( my $ref = $sth->fetchrow_hashref() ) {
+      printlog 'info', 'db answer', Dumper $ref;
+      return undef if $ref->{$q} eq 2;
+      printlog( 'warn', 'strange answer', Dumper $ref);
     }
+    #return 'restart';
+  }
 }
-
-
-
 prog('stop')->{func} = sub {
   #local $config{log_all} = 1;
   local @_ = group_or_name_or_services $_[0];
@@ -890,20 +856,17 @@ prog('avail')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'avail', ':', watchable ordered keys %svc;
 };
-
 prog('group')->{func} = sub {
   local $config{log_all} = 1;
   local %_;
-  for my $s (watchable services) {
-    pushex $_{$_}, $s  for grep {$_} array $svc{$s}{group};
+  for my $s ( watchable services ) {
+    pushex $_{$_}, $s for grep { $_ } array $svc{$s}{group};
   }
   printlog 'group', Dumper \%_;
 };
-
-
 prog('dump')->{func} = sub {
   local $config{log_all} = 1;
-  printlog 'dmp', $root_path, Dumper \(%config, %svc, %prog, %ps, %stat);
+  printlog 'dmp', $root_path, Dumper \( %config, %svc, %prog, %ps, %stat );
 };
 prog('help')->{func} = sub {
   local $config{log_all} = 1;
@@ -913,21 +876,17 @@ prog('help')->{func} = sub {
   }
   print "\n";
 };
-
-sub print_stat () {
-  printlog 'stat', Dumper \%stat if %stat;
-}
-
+sub print_stat () { printlog 'stat', Dumper \%stat if %stat; }
 prog('keep')->{func} = sub {
   prog('check')->{force} = 1;
-  my $stop=0;
-  $SIG{KILL} = $SIG{TERM} = $SIG{INT} = $SIG{QUIT} = sub {++$stop};
+  my $stop = 0;
+  $SIG{KILL} = $SIG{TERM} = $SIG{INT} = $SIG{QUIT} = sub { ++$stop };
   $SIG{INFO} = \&print_stat;
-  printlog('keep', "checking every $config{sleep} seconds", @_);
-  while (!$stop) {
+  printlog( 'keep', "checking every $config{sleep} seconds", @_ );
+  while ( !$stop ) {
     #progs(@_);
-    prog_run('ps', @_);
-    prog_run('check', @_);
+    prog_run( 'ps',    @_ );
+    prog_run( 'check', @_ );
     sleep $config{sleep};
   }
   print_stat();
@@ -942,7 +901,7 @@ sub prog_run($;@) {
 sub progs() {
   for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
     next unless $prog{$prog}{force};
-    prog_run($prog, @_);
+    prog_run( $prog, @_ );
   }
 }
 unless (caller) {
@@ -956,16 +915,9 @@ unless (caller) {
   prog_run( $_->[0], $_->[1] ) for @wantrun;
   #printlog 'dev', Dumper \%ENV;
 }
-
 #useful in config
 sub use_try ($;@) {
   ( my $path = ( my $module = shift ) . '.pm' ) =~ s{::}{/}g;
   $INC{$path} or eval 'use ' . $module . ' qw(' . ( join ' ', @_ ) . ');1;' and $INC{$path};
 }
-
-
-
 1;
-
-
-
