@@ -113,7 +113,6 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  identify by process desc (sendmail)
  keep: step by step skip fail checks (http->tcp->proc)
  group once for samba
- multiplie group cfg: 'group' or [qw(group 2 3)]
 
 =head1 COPYRIGHT
 
@@ -396,6 +395,8 @@ sub alarmed {
         mysql_ssl mysql_ssl_client_key mysql_ssl_client_cert mysql_ssl_ca_file mysql_ssl_ca_path mysql_ssl_cipher
         mysql_local_infile mysql_embedded_options mysql_embedded_groups)
     ],
+    Pg => [qw(host port options tty dbname user password)],
+    PgPP => [qw(dbname host port path debug)],
   },
 );
 for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
@@ -539,6 +540,12 @@ sub pushex (\$@) {
   local $_ = shift;
   $$_ = $$_ ? [ ref $$_ eq 'ARRAY' ? @$$_ : $$_, @_ ] : @_ > 1 ? \@_ : $_[0];
 }
+sub use_try ($;@) {
+  ( my $path = ( my $module = shift ) . '.pm' ) =~ s{::}{/}g;
+  $INC{$path} or eval 'use ' . $module . ' qw(' . ( join ' ', @_ ) . ');1;' and $INC{$path};
+}
+
+
 param_to_config( scalar get_params() );
 {
   my ( $current, $order );
@@ -740,7 +747,8 @@ prog('check')->{func} = sub {
         printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
         my $time = time();
         #lwp here
-        printlog( 'err', 'no libs LWP, URI' ), last unless ( eval('use LWP::UserAgent; use URI::URL;1;') );
+        #printlog( 'err', 'no libs LWP, URI' ), last unless ( eval('use LWP::UserAgent; use URI::URL;1;') );
+        next unless use_try 'LWP::UserAgent' and use_try 'URI::URL';
         my $ua = LWP::UserAgent->new( 'timeout' => config( $s, 'timeout' ), %{ config( $s, 'lwp' ) || {} }, );
         my $get =
             'http://'
@@ -825,14 +833,20 @@ sub dbi_check ($) {
     printlog( 'info', 'dbi', @_ );
     $ss->{dbh} ||= DBI->connect(@_);
     printlog( 'err', 'no dbh', $DBI::err, $DBI::errstr ), return 'restart' if !$ss->{dbh} or $DBI::err or $DBI::errstr;
-    my $q   = '1+1';
-    my $sth = $ss->{dbh}->prepare("SELECT $q");
+    unless ($ss->{db_query}) {
+      $ss->{db_query}  = '1+1';
+      $ss->{db_answer} = 2;
+    }
+    my $sth = $ss->{dbh}->prepare("SELECT $ss->{db_query}");
     printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart' if !$sth;
     $sth->execute;
 
     while ( my $ref = $sth->fetchrow_hashref() ) {
       printlog 'info', 'db answer', Dumper $ref;
-      return undef if $ref->{$q} eq 2;
+      for (values %$ref) {
+        #return undef if $ref->{$q} eq 2;
+        return undef if $_ eq $ss->{db_answer};
+      }
       printlog( 'warn', 'strange answer', Dumper $ref);
     }
     #return 'restart';
@@ -914,10 +928,5 @@ unless (caller) {
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
   #printlog 'dev', Dumper \%ENV;
-}
-#useful in config
-sub use_try ($;@) {
-  ( my $path = ( my $module = shift ) . '.pm' ) =~ s{::}{/}g;
-  $INC{$path} or eval 'use ' . $module . ' qw(' . ( join ' ', @_ ) . ');1;' and $INC{$path};
 }
 1;

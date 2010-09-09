@@ -76,7 +76,7 @@ our ( %svc, %config );
 #$svc{mysql}{dbi} = 'mysql';
 =custom query test (try with --log_all)
 $svc{mysql}{check} = sub {
-    if ( watchmen::use_try('DBI') and $_[0]->{dbh} ) {
+    if ( $_[0]->{dbh} ) {
         my $q = '42';
         my $sth = $_[0]->{dbh}->prepare("SELECT $q") || return 'restart';
         $sth->execute;
@@ -88,5 +88,10 @@ $svc{mysql}{check} = sub {
     }
 };
 =cut
+
+#$svc{postgresql}{dbi} = 'Pg';    # DBD::Pg      select installed dbi driver
+##$svc{postgresql}{dbi} = 'PgPP'; # DBD::PgPP
+#$svc{postgresql}{user} = 'pgsql';
+#$svc{postgresql}{dbname} = 'template1';
 
 1;
