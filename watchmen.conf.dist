@@ -63,6 +63,7 @@ our ( %svc, %config );
 #  http_content => 'data=VeryComplexTest',
 #  http_code    => 200, # we want THIS code
 #  http_check   => 'VeryComplexAnswer', # we want find it in recieve data
+#  check        => sub { return 'restart' if 42+1 == 13 }, # any your check here
 #);
 #
 # $svc{moused}  = n( no_stop => 1, ); # [tmp] must look at -e moused_port="/dev/psm0"
@@ -74,6 +75,7 @@ our ( %svc, %config );
 
 #database dbi query test (requires DBD::mysql module)
 #$svc{mysql}{dbi} = 'mysql';
+#$svc{mysql}{database} = 'test';
 =custom query test (try with --log_all)
 $svc{mysql}{check} = sub {
     if ( $_[0]->{dbh} ) {

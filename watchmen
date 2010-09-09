@@ -23,6 +23,29 @@ sub get_params_one(@) {    # WELCOME TO PERL %-)
  check[=svc] stop[=svc] restart[=svc] keep[=svc] list avail help
  where svc can be name of service or name of group. if group - all services in this group will be affected
 
+=head1 AVAILABILITY
+
+The latest version of B<watchmen> is available from
+http://code.google.com/p/watchmen/
+
+=head1 REQUIREMENTS
+
+to use all features , install the following:
+
+ * DBI and DBD::mysql or DBD::Pg or DBD::PgPP
+ * LWP::UserAgent and URI::URL
+
+=head1 DESCRIPTION
+
+B<watchmen> check availability of your services and [re]start them if any problems detected.
+
+ * process in ps 
+ * tcp or udp socket
+ * correct http answer
+ * database query execution
+ * memory and processes in limit, and reaching maximum of any (numeric) ps columns:  SL  RE PAGEIN   VSZ   RSS   LIM TSIZ %CPU %MEM
+ * any custom check 
+
 =head1 EXAMPLES
 
  #check and restart default services
@@ -410,7 +433,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   sshd      => n( tcp => 22, no_stop => 1 ),
   watchdogd => n,
   devd => n( no_stop => 1, ),
-  #moused  => n( no_stop => 1, ),
+  #moused  => n( no_stop => 1, ), #started and stopped by devd
   syslogd   => n,
   cron      => n,
   amd       => n,
@@ -455,6 +478,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   nut        => n( process => 'upsd' ),
   nut_upslog => n( process => 'upslog' ),
   nut_upsmon => n( process => 'upsmon' ),
+  healthd    => n,
   icecast    => n( rcdname => 'icecast2',         http       => 8000 ),
   ipa        => n,
   tinyproxy  => n,         #tcp => 8888
@@ -664,7 +688,7 @@ prog('ps')->{force} = 1;
 prog()->{func} = sub {
   %ps = ();
   my @ps = `$config{ps}`;
-  printlog( 'ps', @ps );
+  printlog( 'ps', "\n", @ps );
   local $_ = shift @ps;
   s/^\s+//;
   chomp;
@@ -812,7 +836,10 @@ prog('check')->{func} = sub {
         and $stat{chain}{$s}{ $svc{$s}{action} } > $svc{$s}{chain_noaction}
         and $stat{chain}{$s}{ $svc{$s}{action} } % $svc{$s}{chain_try_every};
     $svc{$s}{action} ||= dbi_check( $svc{$s} ) if $svc{$s}{dbi};
-    $svc{$s}{check}->( $svc{$s} ) if !$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE';
+    if (!$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE') {
+      $svc{$s}{action} ||=eval { $svc{$s}{check}->( $svc{$s} ) };
+      printlog('custom', 'fail', $@), $svc{$s}{action} = 'restart' if $@;
+    }
     action( $s, $svc{$s}{action} );
   }
 };
