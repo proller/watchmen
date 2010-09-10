@@ -75,7 +75,16 @@ our ( %svc, %config );
 
 #database dbi query test (requires DBD::mysql module)
 #$svc{mysql}{dbi} = 'mysql';
-#$svc{mysql}{database} = 'test';
+#optional:
+#$svc{mysql}{database} = 'mysql';
+#$svc{mysql}{db_query_time_max} = 10;
+#$svc{mysql}{db_query}  = ['2+1', '4+4', '42'];
+#$svc{mysql}{db_answer} = ['3',   '8',   '42'];
+#$svc{mysql}{db_query}  = '* from user limit 10';
+#$svc{mysql}{db_query_min} = 5;
+#$svc{mysql}{db_query}  = 'count(*) from user';
+#$svc{mysql}{db_answer_true} = 1;
+
 =custom query test (try with --log_all)
 $svc{mysql}{check} = sub {
     if ( $_[0]->{dbh} ) {
