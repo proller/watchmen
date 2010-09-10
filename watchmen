@@ -216,7 +216,7 @@ sub file_read ($) {
   close $f;
   return $ret;
 }
-
+my (%logs, $logto);
 sub printlog (@) {    #v5
   return if defined $config{ 'log_' . $_[0] } and !$config{ 'log_' . $_[0] } and !$config{'log_all'};
   my $file = ( (
@@ -260,6 +260,7 @@ sub printlog (@) {    #v5
   file_append( $config{'log_dir'} . $file, @string );
   print @string if @_ and $config{'log_screen'} and !$noscreen;
   flush() if $config{'log_flush'};
+  push @{$logs{$logto}||=[]}, \@string if $logto;
   return @_;
 }
 
@@ -609,23 +610,6 @@ sub action ($$;@) {
     )
   );
 
-=later  
-            if (use_try 'Email::Send') {
-          eval {
-            my $mailer = Email::Send->new( { mailer => 'SMTP' } );
-            printlog(
-              'mail', 'to', $_,
-              $mailer->send(
-                "To: $_
-From: $config{'mail_from'}
-Subject: watchmen action 
-
-"
-              )
-            ) for @{ $config{'mail_report'} };
-          };
-            }
-=cut
 }
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
@@ -732,14 +716,17 @@ prog()->{func} = sub {
     #'COMMAND' => 'mc'
     #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
     #'COMMAND' => 'screen -DRa',
-    $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
-    $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
-    $ps->{process} ||= $1 if $ps->{COMMAND} =~ m{^\S*/(\S+)};
+    #'COMMAND' => '[mysqld]',
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/(\S+)};
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\[([^\]]+)\]$};
   }
   #printlog 'newps', Dumper \%ps;
 };
 prog('check')->{func} = sub {
   for my $s ( group_or_name_or_services $_[0] ) {
+    $logto = $s;
     printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
     next unless $svc{$s}{process};
     my $founded;
@@ -751,7 +738,7 @@ prog('check')->{func} = sub {
       }
       ++$founded;
     }
-    #printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
+    printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
     unless ($founded) {
       printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
       $svc{$s}{action} ||= 'start';
@@ -989,5 +976,36 @@ unless (caller) {
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
   #printlog 'dev', Dumper \%ENV;
+  #printlog 'dev', Dumper \%logs;
+  my %mailto;
+  for my $s (keys %logs) {
+    $mailto{$_}{$s}= $logs{$s}  for grep {$_}array  $svc{$s}{email};
+  }
+  for my $mail (sort keys %mailto) {
+            if (use_try 'Email::Send') 
+            {
+          eval {
+            my $mailer = Email::Send->new( { mailer => 'SMTP' } );
+            printlog(
+              'mail', 'to', $mail,
+              $mailer->send
+              (
+                "To: $mail
+From: $config{'mail_from'}
+Subject: watchmen action 
+
+".#Dumper $mailto{$mail}
+join "\n\n", map {"Service: $_:\n" .
+#join "\n", map {join ' ', @{$mailto{$mail}{$_}}} }
+join "\n",  map{join ' ', @$_} @{$mailto{$mail}{$_}} 
+} sort keys %{$mailto{$mail}}
+              )
+            );
+          };
+            }
+
+  }
+#  printlog 'dev', Dumper \%mailto;
+  
 }
 1;
