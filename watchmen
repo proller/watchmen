@@ -136,6 +136,7 @@ B<watchmen> check availability of your services and [re]start them if any proble
  identify by process desc (sendmail)
  keep: step by step skip fail checks (http->tcp->proc)
  group once for samba
+ alarmed dbi
 
 =head1 COPYRIGHT
 
@@ -371,6 +372,7 @@ sub alarmed {
   log_dmp     => 0,
   log_port    => 0,
   log_http    => 0,
+  log_dbi     => 0,
   tmp => ( $root_path =~ /watch/i ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),    #==farcolorer
   http_code => qr/^[1-4]\d\d$/,
   human     => {
@@ -590,7 +592,9 @@ sub process_check ($) {
 
 sub action ($$;@) {
   my ( $s, $action ) = ( shift, shift );
-  next unless $action;
+  return unless $action;
+  printlog('warn', "no action [$action] for service [$s]" ),
+  return unless $svc{$s}{$action};
   ++$stat{action}{$s}{$action};
   printlog(
     'action', $s, $action, '[',
@@ -603,7 +607,25 @@ sub action ($$;@) {
         delete $svc{$s}{action};
       }
     )
-  ) if $svc{$s}{$action};
+  );
+
+=later  
+            if (use_try 'Email::Send') {
+          eval {
+            my $mailer = Email::Send->new( { mailer => 'SMTP' } );
+            printlog(
+              'mail', 'to', $_,
+              $mailer->send(
+                "To: $_
+From: $config{'mail_from'}
+Subject: watchmen action 
+
+"
+              )
+            ) for @{ $config{'mail_report'} };
+          };
+            }
+=cut
 }
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
@@ -748,14 +770,14 @@ prog('check')->{func} = sub {
       next if $svc{$s}{action};
       for my $port ( array $svc{$s}{$prot} ) {
         printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
-        my $time   = time();
+        my $time   = time;
         my $socket = new IO::Socket::INET(
           'PeerAddr' => $svc{$s}{host},
           'PeerPort' => $port,
           'Proto'    => $prot,
           'Timeout'  => $svc{$s}{timeout},
         );
-        $time = human( 'time_period', time() - $time );
+        $time = human( 'time_period', time - $time );
         printlog( 'port', "connected per", $time ), next if $socket;
         printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
         $svc{$s}{action} ||= 'restart';
@@ -857,26 +879,38 @@ sub dbi_check ($) {
       "dbi:$_{'dbi'}:" . join( ';', map( { $_ . '=' . $_{$_} } grep { defined( $_{$_} ) } @{ $_{'params'} } ) ),
       $_{'user'}, $_{'pass'}, $_{'connect_params'}
     );
-    printlog( 'info', 'dbi', @_ );
+    printlog( 'dbi', @_ );
     $ss->{dbh} ||= DBI->connect(@_);
     printlog( 'err', 'no dbh', $DBI::err, $DBI::errstr ), return 'restart' if !$ss->{dbh} or $DBI::err or $DBI::errstr;
     unless ($ss->{db_query}) {
       $ss->{db_query}  = '1+1';
       $ss->{db_answer} = 2;
     }
-    my $sth = $ss->{dbh}->prepare("SELECT $ss->{db_query}");
-    printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart' if !$sth;
-    $sth->execute;
-
-    while ( my $ref = $sth->fetchrow_hashref() ) {
-      printlog 'info', 'db answer', Dumper $ref;
-      for (values %$ref) {
-        #return undef if $ref->{$q} eq 2;
-        return undef if $_ eq $ss->{db_answer};
+    my $qn = -1;
+    my @answers = array $ss->{db_answer};
+    QUERY: for my $query (map {'SELECT ' . $_} array $ss->{db_query}) {
+      ++$qn;
+      my $time = time;
+      my $sth = $ss->{dbh}->prepare($query);
+      printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart' if !$sth;
+      printlog( 'err', "executing [$query] = [$_] fail [$DBI::err, $DBI::errstr]"),
+        return 'restart' unless local $_ = $sth->execute;
+      $time =  time - $time;
+      printlog('err', "long db answer per [$time>$ss->{db_query_time_max}]"),
+      return 'restart' if $ss->{db_query_time_max} and $time > $ss->{db_query_time_max};
+      my  $rows= 0;
+      while ( my $ref = $sth->fetchrow_hashref() ) {
+        ++$rows;
+        printlog 'dbi', "db answer per [", human('time_period',$time), "]", Dumper $ref;
+        for (values %$ref) {
+          next QUERY if $ss->{db_answer_true} and $_;
+          next QUERY if defined $answers[$qn] and $_ eq $answers[$qn];
+        }
+        printlog( 'warn', 'strange answer', Dumper $ref);
       }
-      printlog( 'warn', 'strange answer', Dumper $ref);
+      printlog('err', " $rows < $ss->{db_query_min} selected [$query]"),
+        return 'restart' if defined $ss->{db_query_min} and $rows < $ss->{db_query_min};
     }
-    #return 'restart';
   }
 }
 prog('stop')->{func} = sub {
