@@ -285,7 +285,9 @@ sub alarmed {
       $@, ') runs:', ' [', join( ',', grep $_, map ( ( caller($_) )[2], ( 0 .. 15 ) ) ), ']' ),
       unless $@ eq "alarm\n";    # propagate unexpected errors
     printlog( 'err', 'Sorry, timeout (', $timeout, ')' );
+    return undef;
   } else {
+printlog('info', 'alarmed else');
   }
   return $ret;
 }
@@ -606,6 +608,7 @@ sub action ($$;@) {
       sub {
         ref $svc{$s}{$action} eq 'CODE' ? $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
         delete $svc{$s}{action};
+	1;
       }
     )
   );
@@ -844,7 +847,19 @@ prog('check')->{func} = sub {
       if exists $stat{chain}{$s}
         and $stat{chain}{$s}{ $svc{$s}{action} } > $svc{$s}{chain_noaction}
         and $stat{chain}{$s}{ $svc{$s}{action} } % $svc{$s}{chain_try_every};
-    $svc{$s}{action} ||= dbi_check( $svc{$s} ) if $svc{$s}{dbi};
+      if ($svc{$s}{dbi}) {
+        unless (alarmed($svc{$s}{dbi_timeout}||5, 
+          sub {
+            $svc{$s}{action} ||= dbi_check( $svc{$s} );
+            1;
+          } 
+          )
+        )
+          { 
+            printlog('err', "dbi timeout");
+            $svc{$s}{action} ||= 'restart';
+          } 
+      }
     if (!$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE') {
       $svc{$s}{action} ||=eval { $svc{$s}{check}->( $svc{$s} ) };
       printlog('custom', 'fail', $@), $svc{$s}{action} = 'restart' if $@;
@@ -967,6 +982,7 @@ sub progs() {
   }
 }
 unless (caller) {
+  my $time = time;
   my @wantrun;
   for (@ARGV) {
     next if /^-/;
@@ -976,6 +992,7 @@ unless (caller) {
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
   #printlog 'dev', Dumper \%ENV;
+  printlog 'info', 'finished per', human('time_period', time-$time), times;
   #printlog 'dev', Dumper \%logs;
   my %mailto;
   for my $s (keys %logs) {
