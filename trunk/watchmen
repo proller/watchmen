@@ -1004,7 +1004,7 @@ unless (caller) {
   my %mailto;
   for my $s ( keys %logs ) {
     next unless $stat{action}{$s};
-    $mailto{$_}{$s} = $logs{$s} for grep { $_ } array $svc{$s}{email};
+    $mailto{$_}{$s} = $logs{$s} for grep { $_ } array $svc{$s}{mail};
   }
   for my $mail ( sort keys %mailto ) {
     if ( use_try 'Email::Send' ) {
