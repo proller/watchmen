@@ -34,6 +34,9 @@ to use all features , install the following:
 
  * DBI and DBD::mysql or DBD::Pg or DBD::PgPP
  * LWP::UserAgent and URI::URL
+ * Email::Send for mail reports
+
+  sudo portinstall databases/p5-DBD-mysql databases/p5-DBD-Pg www/p5-libwww mail/p5-Email-Send
 
 =head1 DESCRIPTION
 
@@ -128,7 +131,6 @@ B<watchmen> check availability of your services and [re]start them if any proble
 
  self pid & check
  /tmp/socketfile check
- mail errors
  various handlers
  rsync --daemon
  more default ports [tested!]
@@ -136,7 +138,7 @@ B<watchmen> check availability of your services and [re]start them if any proble
  identify by process desc (sendmail)
  keep: step by step skip fail checks (http->tcp->proc)
  group once for samba
- alarmed dbi
+ mail full log if action
 
 =head1 COPYRIGHT
 
@@ -177,7 +179,8 @@ sub get_params(;$$) {                                        #v7
   my ( $string, $delim ) = @_;
   $delim ||= '&';
   read( STDIN, local $_ = '', $ENV{'CONTENT_LENGTH'} ) if !$string and $ENV{'CONTENT_LENGTH'};
-  local %_ = $string
+  local %_ =
+    $string
     ? get_params_one split $delim, $string
     : (
     get_params_one(@ARGV), map { get_params_one split $delim, $_ } split( /;\s*/, $ENV{'HTTP_COOKIE'} ),
@@ -216,8 +219,12 @@ sub file_read ($) {
   close $f;
   return $ret;
 }
-my (%logs, $logto);
+my ( %logs, $logto );
+
 sub printlog (@) {    #v5
+                      #push @{ $logs{$logto} ||= [] }, \@string if $logto;
+                      #push @{ $logs{$logto} ||= [] }, \@_ if $logto;
+  push @{ $logs{$logto} ||= [] }, [@_] if $logto;
   return if defined $config{ 'log_' . $_[0] } and !$config{ 'log_' . $_[0] } and !$config{'log_all'};
   my $file = ( (
       defined $config{'log_all'}
@@ -260,7 +267,6 @@ sub printlog (@) {    #v5
   file_append( $config{'log_dir'} . $file, @string );
   print @string if @_ and $config{'log_screen'} and !$noscreen;
   flush() if $config{'log_flush'};
-  push @{$logs{$logto}||=[]}, \@string if $logto;
   return @_;
 }
 
@@ -272,12 +278,13 @@ sub human($;@) {
 
 sub alarmed {
   my ( $timeout, $proc, @proc_param ) = @_;
-  my $ret;
+  my @ret;
   eval {
-    local $SIG{ALRM} = sub { die "alarm\n" }
+    local $SIG{ALRM} =
+      sub { die "alarm\n" }
       if $timeout;    # NB: \n required
     alarm $timeout if $timeout;
-    $ret = $proc->(@proc_param) if ref $proc eq 'CODE';
+    @ret = $proc->(@proc_param) if ref $proc eq 'CODE';
     alarm 0 if $timeout;
   };
   if ( $timeout and $@ ) {
@@ -287,9 +294,9 @@ sub alarmed {
     printlog( 'err', 'Sorry, timeout (', $timeout, ')' );
     return undef;
   } else {
-printlog('info', 'alarmed else');
+    #printlog('info', 'alarmed else');
   }
-  return $ret;
+  return @ret;
 }
 %config = (
   rcorder => 'rcorder',
@@ -423,9 +430,10 @@ printlog('info', 'alarmed else');
         mysql_ssl mysql_ssl_client_key mysql_ssl_client_cert mysql_ssl_ca_file mysql_ssl_ca_path mysql_ssl_cipher
         mysql_local_infile mysql_embedded_options mysql_embedded_groups)
     ],
-    Pg => [qw(host port options tty dbname user password)],
+    Pg   => [qw(host port options tty dbname user password)],
     PgPP => [qw(dbname host port path debug)],
   },
+  mail_from => 'root@localhost',
 );
 for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local/etc/watchmen.conf", "/etc/watchmen.conf", ) {
   $config{config} ||= $_, last if -r;
@@ -569,12 +577,11 @@ sub pushex (\$@) {
   local $_ = shift;
   $$_ = $$_ ? [ ref $$_ eq 'ARRAY' ? @$$_ : $$_, @_ ] : @_ > 1 ? \@_ : $_[0];
 }
+
 sub use_try ($;@) {
   ( my $path = ( my $module = shift ) . '.pm' ) =~ s{::}{/}g;
   $INC{$path} or eval 'use ' . $module . ' qw(' . ( join ' ', @_ ) . ');1;' and $INC{$path};
 }
-
-
 param_to_config( scalar get_params() );
 {
   my ( $current, $order );
@@ -596,8 +603,7 @@ sub process_check ($) {
 sub action ($$;@) {
   my ( $s, $action ) = ( shift, shift );
   return unless $action;
-  printlog('warn', "no action [$action] for service [$s]" ),
-  return unless $svc{$s}{$action};
+  printlog( 'warn', "no action [$action] for service [$s]" ), return unless $svc{$s}{$action};
   ++$stat{action}{$s}{$action};
   printlog(
     'action', $s, $action, '[',
@@ -608,11 +614,10 @@ sub action ($$;@) {
       sub {
         ref $svc{$s}{$action} eq 'CODE' ? $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
         delete $svc{$s}{action};
-	1;
+        1;
       }
     )
   );
-
 }
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
@@ -741,7 +746,7 @@ prog('check')->{func} = sub {
       }
       ++$founded;
     }
-    printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$founded]" );
+    printlog( 'info', " [$s] processes [$founded]" );
     unless ($founded) {
       printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
       $svc{$s}{action} ||= 'start';
@@ -847,22 +852,24 @@ prog('check')->{func} = sub {
       if exists $stat{chain}{$s}
         and $stat{chain}{$s}{ $svc{$s}{action} } > $svc{$s}{chain_noaction}
         and $stat{chain}{$s}{ $svc{$s}{action} } % $svc{$s}{chain_try_every};
-      if ($svc{$s}{dbi}) {
-        unless (alarmed($svc{$s}{dbi_timeout}||5, 
+    if ( $svc{$s}{dbi} ) {
+      unless (
+        alarmed(
+          $svc{$s}{dbi_timeout} || 5,
           sub {
             $svc{$s}{action} ||= dbi_check( $svc{$s} );
             1;
-          } 
-          )
+          }
         )
-          { 
-            printlog('err', "dbi timeout");
-            $svc{$s}{action} ||= 'restart';
-          } 
+        )
+      {
+        printlog( 'err', "dbi timeout" );
+        $svc{$s}{action} ||= 'restart';
       }
-    if (!$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE') {
-      $svc{$s}{action} ||=eval { $svc{$s}{check}->( $svc{$s} ) };
-      printlog('custom', 'fail', $@), $svc{$s}{action} = 'restart' if $@;
+    }
+    if ( !$svc{$s}{action} and ref $svc{$s}{check} eq 'CODE' ) {
+      $svc{$s}{action} ||= eval { $svc{$s}{check}->( $svc{$s} ) };
+      printlog( 'custom', 'fail', $@ ), $svc{$s}{action} = 'restart' if $@;
     }
     action( $s, $svc{$s}{action} );
   }
@@ -884,34 +891,35 @@ sub dbi_check ($) {
     printlog( 'dbi', @_ );
     $ss->{dbh} ||= DBI->connect(@_);
     printlog( 'err', 'no dbh', $DBI::err, $DBI::errstr ), return 'restart' if !$ss->{dbh} or $DBI::err or $DBI::errstr;
-    unless ($ss->{db_query}) {
+    unless ( $ss->{db_query} ) {
       $ss->{db_query}  = '1+1';
       $ss->{db_answer} = 2;
     }
-    my $qn = -1;
+    my $qn      = -1;
     my @answers = array $ss->{db_answer};
-    QUERY: for my $query (map {'SELECT ' . $_} array $ss->{db_query}) {
+  QUERY: for my $query ( map { 'SELECT ' . $_ } array $ss->{db_query} ) {
       ++$qn;
       my $time = time;
-      my $sth = $ss->{dbh}->prepare($query);
+      my $sth  = $ss->{dbh}->prepare($query);
       printlog( 'err', 'no sth', $DBI::err, $DBI::errstr ), return 'restart' if !$sth;
-      printlog( 'err', "executing [$query] = [$_] fail [$DBI::err, $DBI::errstr]"),
-        return 'restart' unless local $_ = $sth->execute;
-      $time =  time - $time;
-      printlog('err', "long db answer per [$time>$ss->{db_query_time_max}]"),
-      return 'restart' if $ss->{db_query_time_max} and $time > $ss->{db_query_time_max};
-      my  $rows= 0;
+      printlog( 'err', "executing [$query] = [$_] fail [$DBI::err, $DBI::errstr]" ), return 'restart'
+        unless local $_ = $sth->execute;
+      $time = time - $time;
+      printlog( 'err', "long db answer per [$time>$ss->{db_query_time_max}]" ), return 'restart'
+        if $ss->{db_query_time_max} and $time > $ss->{db_query_time_max};
+      my $rows = 0;
+
       while ( my $ref = $sth->fetchrow_hashref() ) {
         ++$rows;
-        printlog 'dbi', "db answer per [", human('time_period',$time), "]", Dumper $ref;
-        for (values %$ref) {
+        printlog 'dbi', "db answer per [", human( 'time_period', $time ), "]", Dumper $ref;
+        for ( values %$ref ) {
           next QUERY if $ss->{db_answer_true} and $_;
           next QUERY if defined $answers[$qn] and $_ eq $answers[$qn];
         }
         printlog( 'warn', 'strange answer', Dumper $ref);
       }
-      printlog('err', " $rows < $ss->{db_query_min} selected [$query]"),
-        return 'restart' if defined $ss->{db_query_min} and $rows < $ss->{db_query_min};
+      printlog( 'err', " $rows < $ss->{db_query_min} selected [$query]" ), return 'restart'
+        if defined $ss->{db_query_min} and $rows < $ss->{db_query_min};
     }
   }
 }
@@ -992,37 +1000,40 @@ unless (caller) {
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
   #printlog 'dev', Dumper \%ENV;
-  printlog 'info', 'finished per', human('time_period', time-$time), times;
   #printlog 'dev', Dumper \%logs;
   my %mailto;
-  for my $s (keys %logs) {
-    $mailto{$_}{$s}= $logs{$s}  for grep {$_}array  $svc{$s}{email};
+  for my $s ( keys %logs ) {
+    next unless $stat{action}{$s};
+    $mailto{$_}{$s} = $logs{$s} for grep { $_ } array $svc{$s}{email};
   }
-  for my $mail (sort keys %mailto) {
-            if (use_try 'Email::Send') 
-            {
-          eval {
-            my $mailer = Email::Send->new( { mailer => 'SMTP' } );
-            printlog(
-              'mail', 'to', $mail,
-              $mailer->send
-              (
-                "To: $mail
-From: $config{'mail_from'}
-Subject: watchmen action 
-
-".#Dumper $mailto{$mail}
-join "\n\n", map {"Service: $_:\n" .
-#join "\n", map {join ' ', @{$mailto{$mail}{$_}}} }
-join "\n",  map{join ' ', @$_} @{$mailto{$mail}{$_}} 
-} sort keys %{$mailto{$mail}}
-              )
-            );
-          };
+  for my $mail ( sort keys %mailto ) {
+    if ( use_try 'Email::Send' ) {
+      eval {
+        my $mailer = Email::Send->new( { mailer => 'SMTP' } );
+        printlog(
+          'info', 'mail to', $mail,
+          alarmed(
+            $config{mail_timeout} || 10,
+            sub {
+              $mailer->send(
+                "To: $mail\nFrom: $config{mail_from}\nSubject: " . ( $config{mail_subject} || 'watchmen action' ) . "\n\n" . (
+                  join "\n\n",
+                  map {
+                    "Service: $_:\n" . join "\n",
+                      map { join ' ', @$_ }
+                      @{ $mailto{$mail}{$_} }
+                    } sort keys %{ $mailto{$mail} }
+                  )
+                  . "\n\n"
+                  . Dumper \%stat
+              );
             }
-
+          )
+        );
+      };
+    }
   }
-#  printlog 'dev', Dumper \%mailto;
-  
+  #printlog 'dev', Dumper \%mailto;
+  printlog 'info', 'finished per', human( 'time_period', time - $time ), times;
 }
 1;
