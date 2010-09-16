@@ -105,9 +105,8 @@ $svc{mysql}{check} = sub {
 #$svc{postgresql}{user} = 'pgsql';
 #$svc{postgresql}{dbname} = 'template1';
 
-# DEV! UNTESTED!
-#$config{'mail_from'} = 'root@localhost';
-#$config{default}{email} = 'bill_gates@microsoft.com'; #report any problem, multi emails in [] supported
+#$config{default}{email} = 'root@localhost'; #report any problem, multi emails in [] supported
 #$svc{mysql}{email}= [qw( larry_ellison@oracle.com steeve_jlobs@apple.com )]; # report one service problems
+#$config{'mail_from'} = 'bill_gates@microsoft.com';
 
 1;
