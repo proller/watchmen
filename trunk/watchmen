@@ -159,7 +159,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
-
 our $VERSION = '0.04' . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
@@ -222,8 +221,6 @@ sub file_read ($) {
 my ( %logs, $logto );
 
 sub printlog (@) {    #v5
-                      #push @{ $logs{$logto} ||= [] }, \@string if $logto;
-                      #push @{ $logs{$logto} ||= [] }, \@_ if $logto;
   push @{ $logs{$logto} ||= [] }, [@_] if $logto;
   return if defined $config{ 'log_' . $_[0] } and !$config{ 'log_' . $_[0] } and !$config{'log_all'};
   my $file = ( (
@@ -372,6 +369,7 @@ sub alarmed {
   #log_all=>'+',
   log_default => '+' . ( $root_path =~ /watch/i ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
   log_screen  => 1,
+  log_check   => 0,
   log_rc      => 0,
   log_rcorder => 0,
   log_enable  => 0,
@@ -735,7 +733,7 @@ prog()->{func} = sub {
 prog('check')->{func} = sub {
   for my $s ( group_or_name_or_services $_[0] ) {
     $logto = $s;
-    printlog( 'info', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
+    printlog( 'check', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
     next unless $svc{$s}{process};
     my $founded;
     for my $p ( process_check $s) {
@@ -746,7 +744,7 @@ prog('check')->{func} = sub {
       }
       ++$founded;
     }
-    printlog( 'info', " [$s] processes [$founded]" );
+    printlog( 'ps', "[$s] processes [$founded]" );
     unless ($founded) {
       printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
       $svc{$s}{action} ||= 'start';
@@ -873,6 +871,7 @@ prog('check')->{func} = sub {
     }
     action( $s, $svc{$s}{action} );
   }
+  $logto = undef;
 };
 
 sub dbi_check ($) {
@@ -962,6 +961,45 @@ prog('help')->{func} = sub {
   print "\n";
 };
 sub print_stat () { printlog 'stat', Dumper \%stat if %stat; }
+
+sub mail () {
+  my %mailto;
+  for my $s ( keys %logs ) {
+    next unless $stat{action}{$s};
+    $mailto{$_}{$s} = $logs{$s} for grep { $_ } array $svc{$s}{mail};
+  }
+  %logs = ();
+  for my $mail ( sort keys %mailto ) {
+    if ( use_try 'Email::Send' ) {
+      eval {
+        my $mailer = Email::Send->new( { mailer => 'SMTP' } );
+        printlog(
+          'info',
+          'mail to',
+          $mail,
+          alarmed(
+            $config{mail_timeout} || 10,
+            sub {
+              $mailer->send(
+                "To: $mail\nFrom: $config{mail_from}\nSubject: " . ( $config{mail_subject} || 'watchmen action' ) . "\n\n" . (
+                  join "\n\n",
+                  map {
+                    "Service: $_:\n" . join "\n",
+                      map { join ' ', @$_ }
+                      @{ $mailto{$mail}{$_} }
+                    } sort keys %{ $mailto{$mail} }
+                  )
+                  . "\n\n"
+                  . Dumper \%stat
+              );
+            }
+          )
+        );
+      };
+    }
+  }
+  #printlog 'dev', Dumper \%mailto;
+}
 prog('keep')->{func} = sub {
   prog('check')->{force} = 1;
   my $stop = 0;
@@ -972,6 +1010,7 @@ prog('keep')->{func} = sub {
     #progs(@_);
     prog_run( 'ps',    @_ );
     prog_run( 'check', @_ );
+    mail;
     sleep $config{sleep};
   }
   print_stat();
@@ -999,41 +1038,9 @@ unless (caller) {
   prog('check')->{force} = 1 unless @wantrun;
   progs();
   prog_run( $_->[0], $_->[1] ) for @wantrun;
+  printlog 'info', 'finished per', human( 'time_period', time - $time ), times;
+  mail;
   #printlog 'dev', Dumper \%ENV;
   #printlog 'dev', Dumper \%logs;
-  my %mailto;
-  for my $s ( keys %logs ) {
-    next unless $stat{action}{$s};
-    $mailto{$_}{$s} = $logs{$s} for grep { $_ } array $svc{$s}{mail};
-  }
-  for my $mail ( sort keys %mailto ) {
-    if ( use_try 'Email::Send' ) {
-      eval {
-        my $mailer = Email::Send->new( { mailer => 'SMTP' } );
-        printlog(
-          'info', 'mail to', $mail,
-          alarmed(
-            $config{mail_timeout} || 10,
-            sub {
-              $mailer->send(
-                "To: $mail\nFrom: $config{mail_from}\nSubject: " . ( $config{mail_subject} || 'watchmen action' ) . "\n\n" . (
-                  join "\n\n",
-                  map {
-                    "Service: $_:\n" . join "\n",
-                      map { join ' ', @$_ }
-                      @{ $mailto{$mail}{$_} }
-                    } sort keys %{ $mailto{$mail} }
-                  )
-                  . "\n\n"
-                  . Dumper \%stat
-              );
-            }
-          )
-        );
-      };
-    }
-  }
-  #printlog 'dev', Dumper \%mailto;
-  printlog 'info', 'finished per', human( 'time_period', time - $time ), times;
 }
 1;
