@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 #$Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
+# perltidy -b -i=2 -ce -l=128 -nbbc -sob -otr -sot *.pm *.pl *.pl.dist *.cgi *.t *.PL watchmen
 package watchmen;
 use strict;
 
@@ -159,7 +160,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
-our $VERSION = '0.04' . '.' . ( split( ' ', '$Revision$' ) )[1];
+
+our $VERSION = '0.05'; # . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
@@ -183,7 +185,7 @@ sub get_params(;$$) {                                        #v7
     ? get_params_one split $delim, $string
     : (
     get_params_one(@ARGV), map { get_params_one split $delim, $_ } split( /;\s*/, $ENV{'HTTP_COOKIE'} ),
-    $ENV{'QUERY_STRING'}, $_
+    $ENV{'QUERY_STRING'},  $_
     );
   wantarray ? %_ : \%_;
 }
@@ -285,8 +287,10 @@ sub alarmed {
     alarm 0 if $timeout;
   };
   if ( $timeout and $@ ) {
-    printlog( 'err', 'Sorry, unknown error (',
-      $@, ') runs:', ' [', join( ',', grep $_, map ( ( caller($_) )[2], ( 0 .. 15 ) ) ), ']' ),
+    printlog(
+      'err', 'Sorry, unknown error (',
+      $@, ') runs:', ' [', join( ',', grep $_, map ( ( caller($_) )[2], ( 0 .. 15 ) ) ), ']'
+      ),
       unless $@ eq "alarm\n";    # propagate unexpected errors
     printlog( 'err', 'Sorry, timeout (', $timeout, ')' );
     return undef;
