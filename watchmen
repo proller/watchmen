@@ -294,7 +294,7 @@ sub alarmed {
   } else {
     #printlog('info', 'alarmed else');
   }
-  return @ret;
+  return wantarray ? @ret : $ret[0];
 }
 {    #Id: psmisc.pm 4412 2010-03-15 00:13:51Z pro  URL: svn://svn.setun.net/search/trunk/lib/psmisc.pm $
   my (@locks);
@@ -314,15 +314,6 @@ sub alarmed {
     my $waits;
   LOCKWAIT:
     while ( -e lockfile $name) {
-      printlog(
-        'lockdev', $name, 'locktime',
-        -M lockfile $name,
-        time() - $^T + 86400 * -M lockfile $name,
-        $^T + 86400 * -M lockfile $name,
-        86400 * -M lockfile $name,
-        time() - $waitstart,
-        '>', $p{'timeout'},
-      );
       printlog( 'lock', $name, 'ignore too old', -M lockfile $name, time() - $^T + 86400 * -M lockfile $name), last
         if time() - $^T + 86400 * -M lockfile $name > $p{'old'};
       printlog( 'lock', $name, 'fail, timeout', int( time() - $waitstart ) ), return 0 if time() - $waitstart > $p{'timeout'};
@@ -338,7 +329,6 @@ sub alarmed {
       local $/ = undef;
       my $c = <$f>;
       close $f;
-      #printlog 'test', $c;
       printlog( 'warn', 'not my lock', $_, $c ), goto LOCKWAIT if $_ ne $c;
     } else {
       printlog( 'err', 'lock open err', $name, lockfile $name);
@@ -353,14 +343,11 @@ sub alarmed {
     my $name = shift;
     local $_ = pop @locks;
     push @locks, $_ if length $name and lockfile($name) ne $_;
-    #$name ||= $_;
     printlog 'lock', 'unlocking', $name, $name ? lockfile $name : $_;
-    #unlink lockfile( $name ||= $_ );
     unlink $name ? lockfile($name) : $_;
   }
 
   sub unlock_all () {
-    #unlink $_ for reverse @locks;
     unlink $_ while $_ = pop @locks;
   }
 
@@ -368,6 +355,38 @@ sub alarmed {
     #printlog( 'lock', 'END locked unlock', @locks ) if @locks;
     unlock_all();
   }
+}
+our ( %prog, %ps );
+
+sub prog_run($;@) {
+  my $prog = shift;
+  #printlog 'run', $prog, @_;
+  $prog{$prog}{func}->(@_) if ref $prog{$prog}{func} eq 'CODE';
+}
+
+sub action ($$;@) {
+  my ( $s, $action ) = ( shift, shift );
+  return unless $action;
+  printlog( 'warn', "no action [$action] for service [$s]" ), return unless $svc{$s}{$action};
+  return unless lock "$s.$action";
+  ++$stat{action}{$s}{$action};
+  my @ret;
+  printlog(
+    'action', $s, $action, '[',
+    $svc{$s}{$action},
+    ']',
+    @ret = alarmed(
+      config( $s, 'maxexttime' ),
+      sub {
+        my @ret;
+        ref $svc{$s}{$action} eq 'CODE' ? @ret = $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
+        #
+        return wantarray ? @ret : $ret[0];
+      }
+    )
+  );
+  unlock;
+  return wantarray ? @ret : $ret[0];
 }
 %config = (
   rcorder => 'rcorder',
@@ -391,56 +410,37 @@ sub alarmed {
     restart_hard_kill_sleep => 5,
     stop_hard               => sub {
       my ($s) = @_;
-      my $ret;
-      {
-        {
-          last unless process_check($s);
-          my $flag = 'hard.' . $s . '.stop';
-          $ret = 1, last unless lock $flag;    #,  timeout => 0, old => 300  ;
-                                               #file_rewrite $flag, $$;
-          printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
-          sleep $svc{$s}{restart_hard_stop_sleep};
-          my $pid;
-          $pid = file_read( $svc{$s}{pidfile} ), $pid =~ s/\D//g, if $svc{$s}{pidfile};
-          $svc{$s}{pid} ||= $pid;
-          #printlog 'dev', 'pid', $s, $svc{$s}{pid};
-          $flag = 'hard.' . $s . '.kill';
-          my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
-          my $flags;
-          my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
-          $ret = 1, last unless lock $flag;    #,  timeout => 0, old => 1000  ;
-          prog_run('ps');
-          last unless process_check($s);
-          #file_rewrite $flag, $$;
-          #printlog 'warn', $s, 'kill', $svc{$s}{process}, $svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
-          printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",
-            `$kill$flags$what`;                #$svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
-          sleep $svc{$s}{restart_hard_kill_sleep};
-          prog_run('ps');
-          last unless process_check($s);
-          $flags = '-9 ';
-          printlog 'warn', $s, 'kill-9', $svc{$s}{process}, "$kill$flags$what", `$kill$flags$what`;
-          #$svc{$s}{pid} ? `kill -9 $svc{$s}{pid}` : `killall -9 $svc{$s}{process}`;
-          #unlock 'hard.' . $s . $_ for '.stop', '.kill';
-          unlock;
-          unlock;
-        }
-      }
-      #unlink $config{tmp} . 'hard.' . $s . $_ for '.stop', '.kill';
-      #unlock 'hard.' . $s . $_ for '.stop', '.kill';
-      #unlock;
-      return $ret;
+      return unless process_check($s);
+      my $flag = 'hard.' . $s . '.stop';
+      printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
+      sleep $svc{$s}{restart_hard_stop_sleep};
+      my $pid;
+      $pid = file_read( $svc{$s}{pidfile} ), $pid =~ s/\D//g, if $svc{$s}{pidfile};
+      $svc{$s}{pid} ||= $pid;
+      #printlog 'dev', 'pid', $s, $svc{$s}{pid};
+      $flag = 'hard.' . $s . '.kill';
+      my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
+      my $flags;
+      my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
+      prog_run 'ps';
+      return unless process_check($s);
+      printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",
+        `$kill$flags$what`;    #$svc{$s}{pid} ? `kill $svc{$s}{pid}` : `killall $svc{$s}{process}`;
+      sleep $svc{$s}{restart_hard_kill_sleep};
+      prog_run 'ps';
+      return unless process_check($s);
+      $flags = '-9 ';
+      printlog 'warn', $s, 'kill-9', $svc{$s}{process}, "$kill$flags$what", `$kill$flags$what`;
+      return unless process_check($s);
+      return 'cant kill';
     },
   },
   restart_hard => sub {
     my ($s) = @_;
-    #printlog( 'warn', $s, 'hard restart' );
-    #$svc{$s}{stop_hard}->($s) if ref $svc{$s}{stop_hard} eq 'CODE';
-    return if action( $s, 'stop_hard', $s );
+    my @ret;
+    printlog( 'warn', $s, 'hard restart fail', @ret ), return @ret if @ret = action $s, 'stop_hard', $s;
     sleep 1;
-    #printlog 'warn', $s, 'start', `$svc{$s}{start}`;
-    #printlog 'warn', $s, 'start',
-    action( $s, 'start' );
+    return action $s, 'start';
   },
   #log_all=>'+',
   log_default => '+' . ( $root_path =~ /watch/i ? $root_path : -d '/var/log/' ? '/var/log/' : $root_path ) . 'watchmen.log',
@@ -593,7 +593,6 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
       }
     }
   ),
-  #'avahi-daemon' => n(rcdname => 'avahi-daemon'),
   avahi_daemon   => n( process => 'avahi-daemon',   rcdname => 'avahi-daemon' ),     # udp=>5353
   avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
 );
@@ -603,7 +602,6 @@ if ( $config{config} ) {
 } else {
   printlog( 'info', "using default config because watchmen.conf not exist" );
 }
-our ( %prog, %ps );
 
 sub param_to_config ($) {
   my ($param) = @_;
@@ -677,30 +675,6 @@ sub process_check ($) {
   return unless $svc{$s}{process};
   grep { $svc{$s}{process} eq $ps{$_}{process} } keys %ps;
 }
-
-sub action ($$;@) {
-  my ( $s, $action ) = ( shift, shift );
-  return unless $action;
-  printlog( 'warn', "no action [$action] for service [$s]" ), return unless $svc{$s}{$action};
-  return unless lock "$s.$action";
-  ++$stat{action}{$s}{$action};
-  my @ret;
-  printlog(
-    'action', $s, $action, '[',
-    $svc{$s}{$action},
-    ']',
-    @ret = alarmed(
-      config( $s, 'maxexttime' ),
-      sub {
-        ref $svc{$s}{$action} eq 'CODE' ? $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
-        delete $svc{$s}{action};
-        1;
-      }
-    )
-  );
-  unlock;
-  return @ret;
-}
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
   for my $rcconf ( @{ $config{rcconf} } ) {
@@ -752,12 +726,9 @@ prog()->{func} = sub {
     #$svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
     $svc{$s}{restart} ||= sub {
       my $s = shift;
-      printlog( 'stop', $s );
-      `$svc{$s}{stop}`;
-      printlog( 'sleep', $s, $svc{$s}{sleep} );
+      action $s, 'stop';
       sleep $svc{$s}{sleep};
-      printlog( 'start', $s );
-      `$svc{$s}{start}`;
+      action $s, 'start';
     };
     $svc{$s}{sleep} ||= 1 unless defined $svc{$s}{sleep};
     $svc{$s}{rcconf} ||= $s;
@@ -894,7 +865,6 @@ prog('check')->{func} = sub {
           my $code_ok;
           if   ( ref $code eq 'Regexp' ) { ++$code_ok if $_ =~ $code; }
           else                           { ++$code_ok if $_ =~ /$code/; }
-          #printlog( 'warn', 'http code, recv', $_, ', want ', $code, "[$code_ok]");
           unless ($code_ok) {
             printlog( 'warn', 'no good http code, recv', $_, ', want ', $code, "[$code_ok]" );
             $svc{$s}{action} ||= 'restart';
@@ -902,8 +872,6 @@ prog('check')->{func} = sub {
           }
         }
         $time = human( 'time_period', time() - $time );
-        #!      printlog( 'port', "connected per", $time ), next if $socket;
-        #!      printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
         my $check = $svc{$s}{ $prot . '_check' };
         if ( ref $check eq 'CODE' ) { next if $check->($result) }
         elsif ($check) {
@@ -919,7 +887,6 @@ prog('check')->{func} = sub {
         last;
       }
     }
-    #printlog( 'action', $s, $svc{$s}{action}, );
     if ( $svc{$s}{action} ) {
       ++$stat{chain}{$s}{ $svc{$s}{action} };
 #printlog 'chain', $stat{chain}{$s}{$svc{$s}{action}} , $svc{$s}{chain_noaction} , !($stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every});
@@ -949,7 +916,8 @@ prog('check')->{func} = sub {
       $svc{$s}{action} ||= eval { $svc{$s}{check}->( $svc{$s} ) };
       printlog( 'custom', 'fail', $@ ), $svc{$s}{action} = 'restart' if $@;
     }
-    action( $s, $svc{$s}{action} );
+    action $s, $svc{$s}{action};
+    delete $svc{$s}{action};
   }
   $logto = undef;
 };
@@ -1009,11 +977,11 @@ prog('stop')->{func} = sub {
   #local $config{log_all} = 1;
   local @_ = group_or_name_or_services $_[0];
   @_ = reverse ordered @_;
-  printlog 'stop', ':', $@, action( $_, 'stop_hard' ), for @_;
+  printlog 'stop', ':', $@, action $_, 'stop_hard' for @_;
 };
 prog('restart')->{func} = sub {
-  prog_run( 'stop',  @_ );
-  prog_run( 'check', @_ );
+  prog_run 'stop',  @_;
+  prog_run 'check', @_;
 };
 prog('list')->{func} = sub {
   local $config{log_all} = 1;
@@ -1087,27 +1055,21 @@ prog('keep')->{func} = sub {
   my $stop = 0;
   $SIG{KILL} = $SIG{TERM} = $SIG{INT} = $SIG{QUIT} = sub { ++$stop };
   $SIG{INFO} = \&print_stat;
-  printlog( 'keep', "checking every $config{sleep} seconds", @_ );
+  printlog 'keep', "checking every $config{sleep} seconds", @_;
   while ( !$stop ) {
     #progs(@_);
-    prog_run( 'ps',    @_ );
-    prog_run( 'check', @_ );
+    prog_run 'ps',    @_;
+    prog_run 'check', @_;
     mail;
     sleep $config{sleep};
   }
   print_stat();
 };
 
-sub prog_run($;@) {
-  my $prog = shift;
-  #printlog 'run', $prog, @_;
-  $prog{$prog}{func}->(@_) if ref $prog{$prog}{func} eq 'CODE';
-}
-
 sub progs() {
   for my $prog ( sort { $prog{$a}{order} <=> $prog{$b}{order} } keys %prog ) {
     next unless $prog{$prog}{force};
-    prog_run( $prog, @_ );
+    prog_run $prog, @_;
   }
 }
 unless (caller) {
