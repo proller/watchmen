@@ -160,6 +160,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
+
 our $VERSION = '0.05' . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
@@ -458,7 +459,7 @@ sub action ($$;@) {
   log_port    => 0,
   log_http    => 0,
   log_dbi     => 0,
-  #  log_lock     => 0,
+  log_lock    => 0,
   lock_dir => ( $root_path =~ /watch/i ? $root_path : -d '/tmp/' ? '/tmp/' : $root_path ),    #==farcolorer
   http_code => qr/^[1-4]\d\d$/,
   human     => {
@@ -595,6 +596,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   ),
   avahi_daemon   => n( process => 'avahi-daemon',   rcdname => 'avahi-daemon' ),     # udp=>5353
   avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
+  openttd => n( tcp => 3979 ),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
@@ -658,7 +660,7 @@ sub use_try ($;@) {
   ( my $path = ( my $module = shift ) . '.pm' ) =~ s{::}{/}g;
   $INC{$path} or eval 'use ' . $module . ' qw(' . ( join ' ', @_ ) . ');1;' and $INC{$path};
 }
-param_to_config( scalar get_params() );
+param_to_config scalar get_params;
 {
   my ( $current, $order );
 
@@ -755,7 +757,7 @@ prog('ps')->{force} = 1;
 prog()->{func} = sub {
   %ps = ();
   my @ps = `$config{ps}`;
-  printlog( 'ps', "\n", @ps );
+  printlog 'ps', "\n", @ps;
   local $_ = shift @ps;
   s/^\s+//;
   chomp;
@@ -839,7 +841,7 @@ prog('check')->{func} = sub {
         $port = 80  if $port == 1 and $prot eq 'http';
         $port = 443 if $port == 1 and $prot eq 'https';
         printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
-        my $time = time();
+        my $time = time;
         next unless use_try 'LWP::UserAgent' and use_try 'URI::URL';
         my $ua = LWP::UserAgent->new( 'timeout' => config( $s, 'timeout' ), %{ config( $s, 'lwp' ) || {} }, );
         my $get =
@@ -932,7 +934,7 @@ sub dbi_check ($) {
       ( map { $_ => $_[0]->{tcp} } grep { defined $_[0]->{tcp} } qw(port) ),
     );
     local @_ = (
-      "dbi:$_{'dbi'}:" . join( ';', map( { $_ . '=' . $_{$_} } grep { defined( $_{$_} ) } @{ $_{'params'} } ) ),
+      "dbi:$_{'dbi'}:" . join( ';', map { $_ . '=' . $_{$_} } grep { defined $_{$_} } @{ $_{'params'} } ),
       $_{'user'}, $_{'pass'}, $_{'connect_params'}
     );
     printlog( 'dbi', @_ );
@@ -1063,7 +1065,7 @@ prog('keep')->{func} = sub {
     mail;
     sleep $config{sleep};
   }
-  print_stat();
+  print_stat;
 };
 
 sub progs() {
