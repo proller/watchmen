@@ -376,8 +376,9 @@ sub action ($$;@) {
     'action', $s, $action, '[',
     $svc{$s}{$action},
     ']',
+    #"timeout:", config( $s, 'action_timeout_'.$action ) || config( $s, 'action_timeout' ) ); printlog('action',
     @ret = alarmed(
-      config( $s, 'maxexttime' ),
+      config( $s, 'action_timeout_'.$action ) || config( $s, 'action_timeout' ),
       sub {
         my @ret;
         ref $svc{$s}{$action} eq 'CODE' ? @ret = $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
@@ -395,9 +396,10 @@ sub action ($$;@) {
     { '/etc/rc.d/' => { group => 'system' }, '/usr/local/etc/rc.d/' => { group => 'local' }, },
   rcdext => [ '', '.sh' ],
   ps => $^O eq 'freebsd' ? 'ps vxaww' : 'ps xaww',
+# ps => 'ps a -o%cpu,%mem,acflag,args,%cpu,%mem,acflag,args,comm,command,cpu,etime,flags,inblk,jid,jobc,ktrace,label,lim,lockname,logname,lstart,majflt,minflt,msgrcv,msgsnd,mwchan,nice,nivcsw,nsigs,nswap,nvcsw,nwchan,oublk,paddr,pagein,pgid,pid,poip,ppid,pri,re,rgid,rgroup,rlink,rss,rtprio,ruid,ruser,sid,sig,sigcatch,sigignore,sigmask,sl,start,state,svgid,svuid,tdaddr,tdev,time,tpgid,tsid,tsiz,tt,tty,uprocp,ucomm,uid,upr,user,vsz,wchan,xstat',
   rcconf => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
   #log_screen=>1,
-  maxexttime => 30,
+  action_timeout => 30,
   sleep      => 10,
   default    => {
     min_proc                => 1,
@@ -412,14 +414,13 @@ sub action ($$;@) {
     stop_hard               => sub {
       my ($s) = @_;
       return unless process_check($s);
-      my $flag = 'hard.' . $s . '.stop';
-      printlog 'warn', $s, 'stop', `daemon $svc{$s}{stop} &`;
-      sleep $svc{$s}{restart_hard_stop_sleep};
+      if (lock "$s.stop_hard.stop") {
+          printlog 'warn', $s, 'stop', system "daemon $svc{$s}{stop}";
+          sleep $svc{$s}{restart_hard_stop_sleep};
+      }
       my $pid;
       $pid = file_read( $svc{$s}{pidfile} ), $pid =~ s/\D//g, if $svc{$s}{pidfile};
       $svc{$s}{pid} ||= $pid;
-      #printlog 'dev', 'pid', $s, $svc{$s}{pid};
-      $flag = 'hard.' . $s . '.kill';
       my $kill = $svc{$s}{pid} ? 'kill ' : 'killall ';
       my $flags;
       my $what = $svc{$s}{pid} ? $svc{$s}{pid} : $svc{$s}{process};
@@ -554,7 +555,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   rsyncd     => n( process => 'rsync', tcp => 873 ),
   postgresql => n( process => 'postgres', tcp => 5432 ),
   mysql      => n( process => 'mysqld', rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
-  sphinxsearch => n( process => 'searchd',      tcp => 9312 ),
+  sphinxsearch => n( process => 'searchd',      tcp => 9312 ), #9306  , action_timeout_stop=>5
   svnserve     => n( process => 'svnserve.bin', tcp => 3690 ),
   proftpd      => n( tcp     => 21 ),
   nmbd     => n( group => 'samba', rcdname => 'samba', rcconfname    => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
