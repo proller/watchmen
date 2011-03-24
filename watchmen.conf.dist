@@ -109,4 +109,7 @@ $svc{mysql}{check} = sub {
 #$svc{mysql}{mail}= [qw( larry_ellison@oracle.com steeve_jlobs@apple.com )]; # report one service problems
 #$config{'mail_from'} = 'bill_gates@microsoft.com';
 
+#$svc{sphinxsearch}{tcp} =  9306;
+#$svc{sphinxsearch}{restart} = $config{restart_hard};
+
 1;
