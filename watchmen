@@ -139,7 +139,6 @@ B<watchmen> check availability of your services and [re]start them if any proble
  identify by process desc (sendmail)
  keep: step by step skip fail checks (http->tcp->proc)
  group once for samba
- mail full log if action
 
 =head1 COPYRIGHT
 
@@ -598,6 +597,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   avahi_daemon   => n( process => 'avahi-daemon',   rcdname => 'avahi-daemon' ),     # udp=>5353
   avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
   openttd => n( tcp => 3979 ),
+  freenet6 => n(process => 'gw6c'),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
