@@ -55,6 +55,8 @@ our ( %svc, %config );
 #  process      => 'VeryComplexService.20090209-1', #look in ps
 #  rcdname      => 'VeryComplexService.6234',
 #  tcp          => 6234, # try tcp connect port                   <--+
+#  port_tries   => 5,  #tries to connect before restart
+#  timeout      => 10, #increased port timeout (default 3 sec)
 #  http_host    => '723.542.718.592', # ip (if service bind to)      |
 #  http         => 8890, # try http connect port (can be other than tcp)
 #  http_method  => 'POST',
