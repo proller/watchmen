@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #$Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 # perltidy -b -i=2 -ce -l=128 -nbbc -sob -otr -sot *.pm *.pl *.pl.dist *.cgi *.t *.PL watchmen
-package watchmen;
+package App::watchmen;
 use strict;
 
 sub get_params_one(@) {    # WELCOME TO PERL %-)
@@ -159,7 +159,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
-
 our $VERSION = '0.05' . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
@@ -377,7 +376,7 @@ sub action ($$;@) {
     ']',
     #"timeout:", config( $s, 'action_timeout_'.$action ) || config( $s, 'action_timeout' ) ); printlog('action',
     @ret = alarmed(
-      config( $s, 'action_timeout_'.$action ) || config( $s, 'action_timeout' ),
+      config( $s, 'action_timeout_' . $action ) || config( $s, 'action_timeout' ),
       sub {
         my @ret;
         ref $svc{$s}{$action} eq 'CODE' ? @ret = $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
@@ -399,8 +398,8 @@ sub action ($$;@) {
   rcconf => [qw(/etc/defaults/rc.conf /etc/rc.conf /etc/rc.conf.local)],
   #log_screen=>1,
   action_timeout => 30,
-  sleep      => 10,
-  default    => {
+  sleep          => 10,
+  default        => {
     min_proc                => 1,
     max_proc                => 1000,
     sleep                   => 1,
@@ -413,9 +412,9 @@ sub action ($$;@) {
     stop_hard               => sub {
       my ($s) = @_;
       return unless process_check($s);
-      if (lock "$s.stop_hard.stop") {
-          printlog 'warn', $s, 'stop', system "daemon $svc{$s}{stop}";
-          sleep $svc{$s}{restart_hard_stop_sleep};
+      if ( lock "$s.stop_hard.stop" ) {
+        printlog 'warn', $s, 'stop', system "daemon $svc{$s}{stop}";
+        sleep $svc{$s}{restart_hard_stop_sleep};
       }
       my $pid;
       $pid = file_read( $svc{$s}{pidfile} ), $pid =~ s/\D//g, if $svc{$s}{pidfile};
@@ -554,7 +553,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   rsyncd     => n( process => 'rsync', tcp => 873 ),
   postgresql => n( process => 'postgres', tcp => 5432 ),
   mysql      => n( process => 'mysqld', rcdname => 'mysql-server', tcp => 3306, restart => $config{restart_hard}, ),
-  sphinxsearch => n( process => 'searchd',      tcp => 9312 ), #9306  , action_timeout_stop=>5
+  sphinxsearch => n( process => 'searchd',      tcp => 9312 ),                     #9306  , action_timeout_stop=>5
   svnserve     => n( process => 'svnserve.bin', tcp => 3690 ),
   proftpd      => n( tcp     => 21 ),
   nmbd     => n( group => 'samba', rcdname => 'samba', rcconfname    => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
@@ -596,8 +595,8 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   ),
   avahi_daemon   => n( process => 'avahi-daemon',   rcdname => 'avahi-daemon' ),     # udp=>5353
   avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
-  openttd => n( tcp => 3979 ),
-  freenet6 => n(process => 'gw6c'),
+  openttd        => n( tcp     => 3979 ),
+  freenet6       => n( process => 'gw6c' ),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
@@ -819,20 +818,24 @@ prog('check')->{func} = sub {
       $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
       next unless $svc{$s}{$prot};
       next if $svc{$s}{action};
-      for my $port ( array $svc{$s}{$prot} ) {
-        printlog( 'port', "connecting to service $s $prot $svc{$s}{host}:$port" );
-        my $time   = time;
-        my $socket = new IO::Socket::INET(
-          'PeerAddr' => $svc{$s}{host},
-          'PeerPort' => $port,
-          'Proto'    => $prot,
-          'Timeout'  => $svc{$s}{timeout},
-        );
-        $time = human( 'time_period', time - $time );
-        printlog( 'port', "connected per", $time ), next if $socket;
-        printlog( 'warn', $s, $prot, $svc{$s}{host}, $port, "no answer", $socket, $time );
+    PORT: for my $port ( array $svc{$s}{$prot} ) {
+        my $tries = $svc{$s}{port_tries} || 1;
+        for my $try ( 1 .. $tries ) {
+          my $log = "$s $prot $svc{$s}{host}:$port timeout=$svc{$s}{timeout} try=$try/$tries";
+          printlog( 'port', "connecting to service $log" );
+          my $time   = time;
+          my $socket = IO::Socket::INET->new(
+            'PeerAddr' => $svc{$s}{host},
+            'PeerPort' => $port,
+            'Proto'    => $prot,
+            'Timeout'  => $svc{$s}{timeout},
+          );
+          $time = human( 'time_period', time - $time );
+          printlog( 'port', "connected per", $time ), next PORT if $socket;
+          printlog( 'warn', "no answer", $log, $time, $socket, );
+        }
         $svc{$s}{action} ||= 'restart';
-        last;
+        last PORT;
       }
     }
     for my $prot (qw(http https)) {
