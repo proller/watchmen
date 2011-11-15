@@ -379,7 +379,8 @@ sub action ($$;@) {
       config( $s, 'action_timeout_' . $action ) || config( $s, 'action_timeout' ),
       sub {
         my @ret;
-        ref $svc{$s}{$action} eq 'CODE' ? @ret = $svc{$s}{$action}->( $s, $action, @_ ) : `$svc{$s}{$action}`;
+	my $code = ref $svc{$s}{$action} eq 'CODE' ? $svc{$s}{$action} : ref $svc{$s}{$svc{$s}{$action}} eq 'CODE' ? $svc{$s}{$svc{$s}{$action}} : ();
+        @ret = $code ? $code->( $s, $action, @_ ) : `$svc{$s}{$action}`;
         #
         return wantarray ? @ret : $ret[0];
       }
@@ -433,6 +434,22 @@ sub action ($$;@) {
       printlog 'warn', $s, 'kill-9', $svc{$s}{process}, "$kill$flags$what", `$kill$flags$what`;
       return unless process_check($s);
       return 'cant kill';
+    },
+    stop_pid  => sub {
+      my ($s) = @_;
+       #printlog 'dev', 'stoppid', Dumper $svc{$s};
+      #return unless process_check($s);
+      my $kill = 'kill ';
+     for my $pid (keys %{$svc{$s}{action_pid}||{}}) {
+      my $flags;
+      my $what = $pid;
+      printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",
+        `$kill$flags$what`;
+      sleep $svc{$s}{restart_hard_kill_sleep};
+      $flags = '-9 ';
+      printlog 'warn', $s, 'kill', $svc{$s}{process}, "$kill$flags$what",
+        `$kill$flags$what`;
+     }
     },
   },
   restart_hard => sub {
@@ -638,7 +655,9 @@ sub ordered(@_) {
 }
 
 sub services() {
-  ordered grep { $svc{$_}{enable} and $svc{$_}{rcd} and -x $svc{$_}{rcd} } keys %svc;
+  ordered grep { $svc{$_}{enable} 
+#and $svc{$_}{rcd} and -x $svc{$_}{rcd} 
+   } keys %svc;
 }
 
 sub watchable (@) {
@@ -718,13 +737,14 @@ prog()->{func} = sub {
         }
       }
       printlog( 'info', "$s: rc.d script not exists [$svc{$s}{rcd}] [$svc{$s}{rcdname}]" ), $svc{$s}{enable} = 0
-        unless $svc{$s}{rcd};
+        #if !$svc{$s}{rcd} and !$svc{$s}{killer};
+        if !$svc{$s}{rcd} and !($svc{$s}{start} or $svc{$s}{stop} or $svc{$s}{restart});
       #printlog('rcd', "$s detected [$svc{$s}{rcd}]");
     }
     $svc{$s}{start} ||= $svc{$s}{rcd} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start ' . join ' ',
-      @{ !$svc{$s}{start_params} ? [] : ref $svc{$s}{start_params} ? $svc{$s}{start_params} : [ $svc{$s}{start_params} ] };
-    $svc{$s}{stop} ||= $svc{$s}{rcd} . ' stop';
-    $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart};
+      @{ !$svc{$s}{start_params} ? [] : ref $svc{$s}{start_params} ? $svc{$s}{start_params} : [ $svc{$s}{start_params} ] } if $svc{$s}{rcd};
+    $svc{$s}{stop} ||= $svc{$s}{rcd} . ' stop' if $svc{$s}{rcd};
+    $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart} and $svc{$s}{rcd};
     #$svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
     $svc{$s}{restart} ||= sub {
       my $s = shift;
@@ -775,6 +795,10 @@ prog()->{func} = sub {
     my $ps = $ps{ $_[ $format{PID} ] } ||= {};
     @{$ps}{@format} = @_;
     $ps->{psline} = $psline++;
+    if ($ps->{TIME} =~ /(\d+):(\d+)(\.\d+)?/) {
+        $ps->{time} = $1 * 60 + $2 + "0$3";
+	#printlog('dev', 'time', $ps->{TIME}, $ps->{time});
+    }
     #'COMMAND' => 'proftpd: (accepting connections) (proftpd)',
     #'COMMAND' => 'mc'
     #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
@@ -794,9 +818,10 @@ prog('check')->{func} = sub {
     next unless $svc{$s}{process};
     my $founded;
     for my $p ( process_check $s) {
+      #printlog('dev', $s, $p);
       for my $max ( grep { $svc{$s}{max}{$_} } keys %{ $svc{$s}{max} || {} } ) {
-        #printlog('dev', "look at $s limit [$max]", $svc{$s}{max}{$max} , $ps{$p}{$max});
-        printlog( 'warn', "$s limit [$max]", $ps{$p}{$max}, '>', $svc{$s}{max}{$max} ), $svc{$s}{action} ||= 'restart'
+        #printlog('dev', "look at $s limit [$max] pid=$p", $svc{$s}{max}{$max} , $ps{$p}{$max});
+        printlog( 'warn', "$s limit [$max]", $ps{$p}{$max}, '>', $svc{$s}{max}{$max} ), $svc{$s}{action} ||= 'restart', ++$svc{$s}{action_pid}{$p},
           if $ps{$p}{$max} > $svc{$s}{max}{$max};
       }
       ++$founded;

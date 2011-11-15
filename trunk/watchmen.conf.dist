@@ -114,4 +114,7 @@ $svc{mysql}{check} = sub {
 #$svc{sphinxsearch}{tcp} =  9306;
 #$svc{sphinxsearch}{restart} = $config{restart_hard};
 
+# custom not serviced process controller
+#$svc{smbclient}  = n( rcdname => '', enable => 1, restart => 'stop_pid', max=>{time=>3600},); # kill all smbclients using more than hour of cpu
+
 1;
