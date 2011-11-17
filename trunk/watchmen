@@ -667,8 +667,8 @@ sub watchable (@) {
 sub group ($) {
   grep { in $_[0], $svc{$_}{group} } watchable services;
 }
-sub group_or_name ($)             { group( $_[0] )         ? group( $_[0] )         : $_[0] }
-sub group_or_name_or_services ($) { group_or_name( $_[0] ) ? group_or_name( $_[0] ) : watchable services }
+sub group_or_name ($)             { defined $_[0] && group( $_[0] )         ? group( $_[0] )         : $_[0] }
+sub group_or_name_or_services ($) { defined $_[0] && group_or_name( $_[0] ) ? group_or_name( $_[0] ) : watchable services }
 
 sub pushex (\$@) {
   local $_ = shift;
@@ -812,7 +812,8 @@ prog()->{func} = sub {
   #printlog 'newps', Dumper \%ps;
 };
 prog('check')->{func} = sub {
-  for my $s ( group_or_name_or_services $_[0] ) {
+  my ($check) = @_;
+  for my $s ( group_or_name_or_services $check ) {
     $logto = $s;
     printlog( 'check', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
     next unless $svc{$s}{process};
@@ -838,7 +839,7 @@ prog('check')->{func} = sub {
       $svc{$s}{action} ||= 'restart';
     }
   }
-  for my $s ( group_or_name_or_services $_[0] ) {
+  for my $s ( group_or_name_or_services $check ) {
     for my $prot (qw(tcp udp)) {
       $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
       next unless $svc{$s}{$prot};
@@ -918,6 +919,7 @@ prog('check')->{func} = sub {
         last;
       }
     }
+
     if ( $svc{$s}{action} ) {
       ++$stat{chain}{$s}{ $svc{$s}{action} };
 #printlog 'chain', $stat{chain}{$s}{$svc{$s}{action}} , $svc{$s}{chain_noaction} , !($stat{chain}{$s}{$svc{$s}{action}} % $svc{$s}{chain_try_every});
@@ -1052,9 +1054,8 @@ sub mail () {
   }
   %logs = ();
   for my $mail ( sort keys %mailto ) {
-    last unless use_try 'Email::Send';
+    last unless use_try 'MIME::Lite';
     eval {
-      my $mailer = Email::Send->new( { mailer => 'SMTP' } );
       printlog(
         'info',
         'mail to',
@@ -1062,8 +1063,12 @@ sub mail () {
         alarmed(
           $config{mail_timeout} || 10,
           sub {
-            $mailer->send(
-              "To: $mail\nFrom: $config{mail_from}\nSubject: " . ( $config{mail_subject} || 'watchmen action' ) . "\n\n" . (
+	    my $mailer = MIME::Lite->new( 
+
+              To => "$mail",
+		From=>  $config{mail_from},
+		Subject =>( $config{mail_subject} || 'watchmen action' ),
+		Data => (
                 join "\n\n",
                 map {
                   "Service: $_:\n" . join "\n",
@@ -1072,7 +1077,11 @@ sub mail () {
                   } sort keys %{ $mailto{$mail} }
                 )
                 . "\n\n"
-                . Dumper \%stat
+                . Dumper \%stat,
+                %{$config{mail}||{}},
+	     );
+            $mailer->send(
+		@{$config{mail_send}},		
             );
           }
         )
