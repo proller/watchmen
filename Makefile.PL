@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker;
   NAME         => 'App::watchmen',
   VERSION_FROM => 'watchmen',
   INSTALLDIRS  => 'bin',
-  PREREQ_PM    => { 'Time::HiRes' => '0', 'LWP::UserAgent' => '0', 'URI::URL' => '0', },
+  PREREQ_PM    => { 'Time::HiRes' => '0', 'LWP::UserAgent' => '0', 'URI::URL' => '0', 'MIME::Lite' => 0, },
   EXE_FILES    => ['watchmen'],
 );
 WriteMakefile(%_);

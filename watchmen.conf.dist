@@ -110,6 +110,7 @@ $svc{mysql}{check} = sub {
 #$config{default}{mail} = 'root@localhost'; #report any problem, multi emails in [] supported
 #$svc{mysql}{mail}= [qw( larry_ellison@oracle.com steeve_jlobs@apple.com )]; # report one service problems
 #$config{'mail_from'} = 'bill_gates@microsoft.com';
+#$config{mail_send} = ['smtp','some.host'];
 
 #$svc{sphinxsearch}{tcp} =  9306;
 #$svc{sphinxsearch}{restart} = $config{restart_hard};
