@@ -159,7 +159,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
-our $VERSION = '0.05' . '.' . ( split( ' ', '$Revision$' ) )[1];
+our $VERSION = '0.06'; # . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
