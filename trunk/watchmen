@@ -367,7 +367,8 @@ sub prog_run($;@) {
 sub action ($$;@) {
   my ( $s, $action ) = ( shift, shift );
   return unless $action;
-  printlog( 'warn', "no action [$action] for service [$s]" ), return unless $svc{$s}{$action};
+  printlog( 'warn', "no action [$action] for service [$s]" ) unless defined $svc{$s}{$action};
+  return unless $svc{$s}{$action};
   return unless lock "$s.$action";
   ++$stat{action}{$s}{$action};
   my @ret;
@@ -553,6 +554,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   dhcpd     => n( rcdname => 'isc-dhcpd', udp => 67 ),
   rtadvd    => n,
   ntpd      => n,
+  rpcbind   => n,
   snmpd     => n,
   snmptrapd => n,
   bsnmpd    => n,
@@ -820,7 +822,7 @@ prog('check')->{func} = sub {
   for my $s ( group_or_name_or_services $check ) {
     $logto = $s;
     printlog( 'check', "looking at [$s] [$svc{$s}{rcd}] [$svc{$s}{process}]" );
-    next unless $svc{$s}{process};
+    next if !$svc{$s}{process};
     my $founded;
     for my $p ( process_check $s) {
       #printlog('dev', $s, $p);
@@ -833,9 +835,9 @@ prog('check')->{func} = sub {
       ++$founded;
     }
     printlog( 'ps', "[$s] processes [$founded]" );
-    unless ($founded) {
-      printlog( 'warn', "$s no_proc!", $svc{$s}{process} );    #start
+    if (!$founded) {
       $svc{$s}{action} ||= 'start';
+      printlog( 'warn', "$s no_proc!", $svc{$s}{process} ) if $svc{$s}{$svc{$s}{action}};    #start
     } elsif ( $founded < $svc{$s}{min_proc} ) {
       printlog( 'warn', "$s min_proc[$founded/$svc{$s}{min_proc}]!" );    #restart
       $svc{$s}{action} ||= 'restart';
@@ -848,7 +850,7 @@ prog('check')->{func} = sub {
     for my $prot (qw(tcp udp)) {
       $svc{$s}{$prot} ||= $svc{$s}{http} if $prot eq 'tcp';
       next unless $svc{$s}{$prot};
-      next if $svc{$s}{action};
+      last if $svc{$s}{action};
     PORT: for my $port ( array $svc{$s}{$prot} ) {
         my $tries = $svc{$s}{port_tries} || 1;
         for my $try ( 1 .. $tries ) {
@@ -871,7 +873,7 @@ prog('check')->{func} = sub {
     }
     for my $prot (qw(http https)) {
       next unless $svc{$s}{$prot};
-      next if $svc{$s}{action};
+      last if $svc{$s}{action};
     PORTOK: for my $port ( array $svc{$s}{$prot} ) {
         $port = 80  if $port == 1 and $prot eq 'http';
         $port = 443 if $port == 1 and $prot eq 'https';
