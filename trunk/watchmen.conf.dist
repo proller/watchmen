@@ -9,6 +9,7 @@ our ( %svc, %config );
 # print("watchdog disabled from watchmen.conf!\n"); exit;
 #
 # $config{log_all}=1; # full logging
+# $config{use_service}=1; # use `service named restart` instead of /etc/rc.d/named restart
 #
 #Disable wathing all default system services:
 #%svc = ();
