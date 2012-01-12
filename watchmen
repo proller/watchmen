@@ -159,7 +159,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
-
 our $VERSION = '0.06';    # . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
@@ -396,6 +395,7 @@ sub action ($$;@) {
 }
 %config = (
   rcorder => 'rcorder',
+  service => 'service',
   rcd =>    #[qw(/etc/rc.d/ /usr/local/etc/rc.d/)],
     { '/etc/rc.d/' => { group => 'system' }, '/usr/local/etc/rc.d/' => { group => 'local' }, },
   rcdext => [ '', '.sh' ],
@@ -469,6 +469,7 @@ sub action ($$;@) {
   log_check   => 0,
   log_rc      => 0,
   log_rcorder => 0,
+  log_service => 0,
   log_enable  => 0,
   log_alive   => 0,
   log_info    => 0,
@@ -719,6 +720,22 @@ prog()->{func} = sub {
     }
     close $rcconfh;
   }
+};
+prog('service')->{force} = 0;
+prog()->{func} = sub {
+  my $order = 200000;
+  if ( $config{service} ) {
+    for (`$config{service} -e 2>/dev/null`) {
+      chomp;
+      my ( $rcd, $name ) = m{^((?:.+/)?([^/]++))$};
+      $_->{order} = $order -= 10, $_->{enable} = 1, $_->{rcd} = $rcd,
+        ( 1 || !watchable( $_->{name} ) ? () : printlog( 'service', $_->{name}, $_->{order}, $_->{rcd}, ) ),
+        for grep { $_ } $svc{$name};    # array $rcd{$_};
+    }
+  }
+};
+prog('config')->{force} = 1;
+prog()->{func} = sub {
   do $config{config} and ++$config{config_run} if $config{config};
 };
 prog('defaults')->{force} = 1;
@@ -746,11 +763,15 @@ prog()->{func} = sub {
         if !$svc{$s}{rcd} and !( $svc{$s}{start} or $svc{$s}{stop} or $svc{$s}{restart} );
       #printlog('rcd', "$s detected [$svc{$s}{rcd}]");
     }
-    $svc{$s}{start} ||= $svc{$s}{rcd} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start ' . join ' ',
+    $svc{$s}{controller} ||= "service $s", if $config{use_service};
+    $svc{$s}{controller} ||= $svc{$s}{rcd};
+    $svc{$s}{start} ||= $svc{$s}{controller} . ' ' . ( $svc{$s}{force_restart} ? 're' : '' ) . 'start ' . join ' ',
       @{ !$svc{$s}{start_params} ? [] : ref $svc{$s}{start_params} ? $svc{$s}{start_params} : [ $svc{$s}{start_params} ] }
-      if $svc{$s}{rcd};
-    $svc{$s}{stop} ||= $svc{$s}{rcd} . ' stop' if $svc{$s}{rcd};
-    $svc{$s}{restart} ||= $svc{$s}{rcd} . ' restart' if !length $svc{$s}{restart} and $svc{$s}{rcd};
+      if $config{use_service}
+        or $svc{$s}{rcd};
+    $svc{$s}{stop} ||= $svc{$s}{controller} . ' stop' if $config{use_service} or $svc{$s}{rcd};
+    $svc{$s}{restart} ||= $svc{$s}{controller} . ' restart'
+      if !length $svc{$s}{restart} and ( $config{use_service} or $svc{$s}{rcd} );
     #$svc{$s}{restart} ||= "$svc{$s}{stop} ;; sleep $svc{$s}{sleep} ;; $svc{$s}{start}";
     $svc{$s}{restart} ||= sub {
       my $s = shift;
@@ -764,19 +785,23 @@ prog()->{func} = sub {
 #my $pid ;    $pid=     file_read($svc{$s}{pidfile}) if $svc{$s}{pidfile};$pid =~ s/\D//g;$svc{$s}{pid} ||= $pid ;printlog 'dev', 'pid', $s, $svc{$s}{pidfile},$svc{$s}{pid};
   }
 };
+our %rcorder;
 prog('rcorder')->{force} = 1;
 prog()->{func} = sub {
   my %rcd;
   pushex $rcd{ $svc{$_}{rcd} }, $svc{$_} for sort keys %svc;
   my $order = 200000;
   if ( $config{rcorder} ) {
-    for ( array_any $config{rcd} ) {
-      for (`$config{rcorder} $_* 2>/dev/null`) {
-        chomp;
-        $_->{order} = $order -= 10, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ),
-          for array $rcd{$_};
-      }
+    #for ( array_any $config{rcd} ) {
+    my $rcdirs = join ' ', map { "$_*" } array_any $config{rcd};
+    for (`$config{rcorder} $rcdirs 2>/dev/null`) {
+      chomp;
+      $order -= 10;
+      $rcorder{$_} = $order;
+      $_->{order} = $order, ( !watchable( $_->{name} ) ? () : printlog( 'rcorder', $_->{name}, $_->{order} ) ),
+        for array $rcd{$_};
     }
+    #    }
   }
 };
 prog('ps')->{force} = 1;
@@ -835,14 +860,14 @@ prog('check')->{func} = sub {
       ++$founded;
     }
     printlog( 'ps', "[$s] processes [$founded]" );
-    if (!$founded) {
+    if ( !$founded ) {
       $svc{$s}{action} ||= 'start';
-      printlog( 'warn', "$s no_proc!", $svc{$s}{process} ) if $svc{$s}{$svc{$s}{action}};    #start
-    } elsif ( $founded < $svc{$s}{min_proc} ) {
-      printlog( 'warn', "$s min_proc[$founded/$svc{$s}{min_proc}]!" );    #restart
+      printlog( 'warn', "$s no_proc!", $svc{$s}{process} ) if $svc{$s}{ $svc{$s}{action} };    #start
+    } elsif ( $svc{$s}{min_proc} and $founded < $svc{$s}{min_proc} ) {
+      printlog( 'warn', "$s min_proc[$founded/$svc{$s}{min_proc}]!" );                         #restart
       $svc{$s}{action} ||= 'restart';
-    } elsif ( $founded > $svc{$s}{max_proc} ) {
-      printlog( 'warn', "$s max_proc[$founded/$svc{$s}{max_proc}]!" );    #restart
+    } elsif ( $svc{$s}{max_proc} and $founded > $svc{$s}{max_proc} ) {
+      printlog( 'warn', "$s max_proc[$founded/$svc{$s}{max_proc}]!" );                         #restart
       $svc{$s}{action} ||= 'restart';
     }
   }
@@ -887,10 +912,10 @@ prog('check')->{func} = sub {
           . $port
           . config( $s, 'http_path' );
         my $resp = $ua->request(
-          new HTTP::Request(
+          HTTP::Request->new(
             config( $s, 'http_method' ) || 'GET',
-            new URI::URL($get),
-            new HTTP::Headers( 'User-Agent' => config( $s, 'http_useragent' ), %{ config( $s, 'http_headers' ) || {} } ),
+            URI::URL->new($get),
+            HTTP::Headers->new( 'User-Agent' => config( $s, 'http_useragent' ), %{ config( $s, 'http_headers' ) || {} } ),
             config( $s, 'http_content' )
           )
         );
@@ -935,6 +960,7 @@ prog('check')->{func} = sub {
     next
       if exists $stat{chain}{$s}
         and $stat{chain}{$s}{ $svc{$s}{action} } > $svc{$s}{chain_noaction}
+        and $svc{$s}{chain_try_every}
         and $stat{chain}{$s}{ $svc{$s}{action} } % $svc{$s}{chain_try_every};
     if ( $svc{$s}{dbi} ) {
       unless (
@@ -1029,6 +1055,12 @@ prog('list')->{func} = sub {
 prog('avail')->{func} = sub {
   local $config{log_all} = 1;
   printlog 'avail', ':', watchable ordered keys %svc;
+};
+prog('service-e')->{func} = sub {    #wrong
+  print $svc{$_}{rcd}, "\n"
+    for grep { $svc{$_}{rcd} }
+    map { s{.+/}{}g; $_ }
+    sort { $rcorder{$b} <=> $rcorder{$a} } keys %rcorder;
 };
 prog('group')->{func} = sub {
   local $config{log_all} = 1;
