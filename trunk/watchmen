@@ -925,12 +925,12 @@ prog('check')->{func} = sub {
 
         if ($code) {
           local $_ = $resp->code();
-          printlog( 'http', "code recv [$_], want [$code]", ref $code );
+          printlog( 'http', "code recv [$_](",$resp->message(),"), want [$code]", ref $code );
           my $code_ok;
           if   ( ref $code eq 'Regexp' ) { ++$code_ok if $_ =~ $code; }
           else                           { ++$code_ok if $_ =~ /$code/; }
           unless ($code_ok) {
-            printlog( 'warn', 'no good http code, recv', $_, ', want ', $code, "[$code_ok]" );
+            printlog( 'warn', 'no good http code',$get,":",$resp->message(),'recv', $_, ', want ', $code, "[$code_ok]" );
             $svc{$s}{action} ||= 'restart';
             last;
           }
