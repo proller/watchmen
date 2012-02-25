@@ -623,6 +623,10 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
   openttd        => n( tcp     => 3979 ),
   freenet6       => n( process => 'gw6c' ),
+  rtadvd         => n,
+  rtsold         => n,
+  route6d        => n,
+  routed         => n,
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
