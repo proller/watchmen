@@ -627,6 +627,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   rtsold         => n,
   route6d        => n,
   routed         => n,
+  totd           => n,
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
