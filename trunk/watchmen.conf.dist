@@ -39,6 +39,9 @@ our ( %svc, %config );
 #chomp(my $hostname = `/bin/hostname`);
 #$svc{mysql}{pidfile} = "/var/db/mysql/$hostname.pid";
 #
+#very hard restart with kill -9 (can corrupt bases)
+#$svc{mysql}{restart} =  $config{restart_hard};
+#
 #check port, code than custom content:
 #$svc{apache22}{http_check}='<html';
 #%{$svc{nginx}} = (%{$svc{nginx}}, http_check=>'<html' );
