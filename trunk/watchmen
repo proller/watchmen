@@ -628,6 +628,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   route6d        => n,
   routed         => n,
   totd           => n,
+  munin_node     => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
@@ -839,11 +840,13 @@ prog()->{func} = sub {
       $ps->{time} = $1 * 60 + $2 + "0$3";
       #printlog('dev', 'time', $ps->{TIME}, $ps->{time});
     }
-    #'COMMAND' => 'proftpd: (accepting connections) (proftpd)',
-    #'COMMAND' => 'mc'
-    #'COMMAND' => 'sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1'
-    #'COMMAND' => 'screen -DRa',
-    #'COMMAND' => '[mysqld]',
+    #/usr/local/sbin/munin-node (perl5.14.2)
+    #proftpd: (accepting connections) (proftpd)
+    #mc
+    #sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1
+    #'screen -DRa                                                 
+    #[mysqld]
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/([^/]+) \(\S+\)$};
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/(\S+)};
