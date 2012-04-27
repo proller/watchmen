@@ -552,7 +552,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   lpd       => n,
   powerd    => n,
   inetd     => n,
-  named     => n( udp => 53 ),
+  named     => n( udp => 53, tcp => 53 ),
   dhcpd     => n( rcdname => 'isc-dhcpd', udp => 67 ),
   rtadvd    => n,
   ntpd      => n,
@@ -651,7 +651,7 @@ sub param_to_config ($) {
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
 sub array (@) {
-  local @_ = map { ref $_ eq 'ARRAY' ? @$_ : $_ } @_;
+  local @_ = map { ref $_ eq 'ARRAY' ? @$_ : $_ } (@_ == 1 and !defined$_[0]) ? () : @_;
   wantarray ? @_ : \@_;
 }
 
@@ -714,17 +714,23 @@ sub process_check ($) {
 }
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
-  for my $rcconf ( @{ $config{rcconf} } ) {
+  my %byname;
+  for ( values %svc) {
+    pushex $byname{$_->{rcconfname}}, $_ if $_->{rcconfname};
+  }
+  for my $rcconf ( array $config{rcconf}  ) {
     next unless open my $rcconfh, '<', $rcconf;
     while (<$rcconfh>) {
       if ( my ( $svc, $key, $value ) = /^\s*(\w+)_(\S+)\s*=\s*"([^"]+)"/i ) {    #"mcedit
         $value = 0 if $value =~ /^no(?:ne)?$/i;
-        printlog( 'dbg', "rc.conf $key [$svc]=[$value]" ) if $value eq 'enable';
-        if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
-          printlog( 'rc', $svc, $key, $_, $value ), $svc{$_}{$key} = $value for @_;
+        printlog( 'dbg', "rc.conf $key [$svc]=[$value]" );# if $value eq 'enable';
+        #if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
+        #  printlog( 'rc','1', $svc, $key, $_, $value ), $svc{$_}{$key} = $value for @_;
+        if ( local @_ = array $byname{$svc}  ) {
+          printlog( 'rc','1', $svc, $key, $_, $value), $_->{$key} = $value for @_;
         } else {
           $svc{$svc}{rcsource} = $rcconf unless $svc{$svc};
-          printlog( 'rc', $svc, $key, $value ), $svc{$svc}{$key} = $value;       #, next if exists $svc{$svc};
+          printlog( 'rc','2', $svc, $key, $value ), $svc{$svc}{$key} = $value;       #, next if exists $svc{$svc};
         }
       }
     }
