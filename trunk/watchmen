@@ -159,7 +159,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
-our $VERSION = '0.06';    # . '.' . ( split( ' ', '$Revision$' ) )[1];
+
+our $VERSION = '0.07';    # . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
@@ -546,24 +547,24 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   watchdogd => n,
   devd => n( no_stop => 1, ),
   #moused  => n( no_stop => 1, ), #started and stopped by devd
-  syslogd   => n,
-  cron      => n,
-  amd       => n,
-  lpd       => n,
-  powerd    => n,
-  inetd     => n,
-  named     => n( udp => 53, tcp => 53 ),
-  dhcpd     => n( rcdname => 'isc-dhcpd', udp => 67 ),
-  rtadvd    => n,
-  ntpd      => n,
-  rpcbind   => n,
+  syslogd => n,
+  cron    => n,
+  amd     => n,
+  lpd     => n,
+  powerd  => n,
+  inetd   => n,
+  named   => n( udp => 53, tcp => 53 ),
+  dhcpd   => n( rcdname => 'isc-dhcpd', udp => 67 ),
+  rtadvd  => n,
+  ntpd    => n,
+  rpcbind => n,
   #nfsd      => n( rcdname => 'nfs_server', ),
-  nfs_server => n( process    => 'nfsd', rcdname => 'nfsd',),
-  snmpd     => n,
-  snmptrapd => n,
-  bsnmpd    => n,
-  arpwatch  => n,
-  smartd    => n,
+  nfs_server => n( process => 'nfsd', rcdname => 'nfsd', ),
+  snmpd      => n,
+  snmptrapd  => n,
+  bsnmpd     => n,
+  arpwatch   => n,
+  smartd     => n,
   #sendmail_submit       => n( process    => 'sendmail', rcdname => 'sendmail', tcp => 25 ),
   sendmail_clientmqueue => n( process    => 'sendmail', rcdname => 'sendmail' ),
   mpd                   => n( rcconfname => 'mpd' ),
@@ -573,20 +574,20 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   apache                => n( process    => 'httpd',    http    => 80 ),
   apache2               => n( process    => 'httpd',    http    => 80 ),
   apache22              => n( process    => 'httpd',    http    => 80 ),           #tcp=>80 #https=>443
-  nginx                 => n( http       => 80 ),
-  memcached             => n,
-  redis      => n( process => 'redis-server', ),
-  rsyncd     => n( process => 'rsync', tcp => 873 ),
-  postgresql => n( process => 'postgres', tcp => 5432 ),
-  mysql      => n( process => 'mysqld', rcdname => 'mysql-server', tcp => 3306,  ), # restart => $config{restart_hard},
-  sphinxsearch => n( process => 'searchd',      tcp => 9312 ),                     #9306  , action_timeout_stop=>5
-  svnserve     => n( process => 'svnserve.bin', tcp => 3690 ),
-  proftpd      => n( tcp     => 21 ),
-  nmbd     => n( group => 'samba', rcdname => 'samba', rcconfname    => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
-  smbd     => n( group => 'samba', rcdname => 'samba', rcconfname    => 'samba', tcp => [ 139, 445 ], force_restart => 1, ),
-  winbindd => n( group => 'samba', rcdname => 'samba', force_restart => 1, ),
-  iscsi_target => n( process    => 'iscsi-target', tcp => 3260, udp => 3260 ),
-  nfsd         => n( rcconfname => 'nfs_server',   tcp => 2049 ),
+  nginx     => n( http    => 80 ),
+  memcached => n,
+  redis     => n( process => 'redis-server', ),
+  rsyncd       => n( process => 'rsync',        tcp     => 873 ),
+  postgresql   => n( process => 'postgres',     tcp     => 5432 ),
+  mysql        => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, ),   # restart => $config{restart_hard},
+  sphinxsearch => n( process => 'searchd',      tcp     => 9312 ),                           #9306  , action_timeout_stop=>5
+  svnserve     => n( process => 'svnserve.bin', tcp     => 3690 ),
+  proftpd => n( tcp   => 21 ),
+  nmbd    => n( group => 'samba', rcdname => 'samba', rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
+  smbd    => n( group => 'samba', rcdname => 'samba', rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1, ),
+  winbindd     => n( group      => 'samba',        rcdname => 'samba', force_restart => 1, ),
+  iscsi_target => n( process    => 'iscsi-target', tcp     => 3260,    udp           => 3260 ),
+  nfsd         => n( rcconfname => 'nfs_server',   tcp     => 2049 ),
   healthd      => n,
   watchquagga  => n
   , # for zebra, bgpd and others use in rc.conf: watchquagga_flags=" --daemon --unresponsive-restart --restart-all '/usr/local/etc/rc.d/quagga restart' zebra bgpd"
@@ -628,7 +629,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   route6d        => n,
   routed         => n,
   totd           => n,
-  munin_node     => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
+  munin_node => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
@@ -651,7 +652,7 @@ sub param_to_config ($) {
 sub config ($;$) { return $_[1] ? $svc{ $_[0] }{ $_[1] } || $config{ $_[1] } : $config{ $_[0] } }
 
 sub array (@) {
-  local @_ = map { ref $_ eq 'ARRAY' ? @$_ : $_ } (@_ == 1 and !defined$_[0]) ? () : @_;
+  local @_ = map { ref $_ eq 'ARRAY' ? @$_ : $_ } ( @_ == 1 and !defined $_[0] ) ? () : @_;
   wantarray ? @_ : \@_;
 }
 
@@ -715,22 +716,22 @@ sub process_check ($) {
 prog('loadrc')->{force} = 1;
 prog()->{func} = sub {
   my %byname;
-  for ( values %svc) {
-    pushex $byname{$_->{rcconfname}}, $_ if $_->{rcconfname};
+  for ( values %svc ) {
+    pushex $byname{ $_->{rcconfname} }, $_ if $_->{rcconfname};
   }
-  for my $rcconf ( array $config{rcconf}  ) {
+  for my $rcconf ( array $config{rcconf} ) {
     next unless open my $rcconfh, '<', $rcconf;
     while (<$rcconfh>) {
       if ( my ( $svc, $key, $value ) = /^\s*(\w+)_(\S+)\s*=\s*"([^"]+)"/i ) {    #"mcedit
         $value = 0 if $value =~ /^no(?:ne)?$/i;
-        printlog( 'dbg', "rc.conf $key [$svc]=[$value]" );# if $value eq 'enable';
-        #if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
-        #  printlog( 'rc','1', $svc, $key, $_, $value ), $svc{$_}{$key} = $value for @_;
-        if ( local @_ = array $byname{$svc}  ) {
-          printlog( 'rc','1', $svc, $key, $_, $value), $_->{$key} = $value for @_;
+        printlog( 'dbg', "rc.conf $key [$svc]=[$value]" );  # if $value eq 'enable';
+                                                            #if ( local @_ = grep { $svc{$_}{rcconfname} eq $svc } keys %svc ) {
+             #  printlog( 'rc','1', $svc, $key, $_, $value ), $svc{$_}{$key} = $value for @_;
+        if ( local @_ = array $byname{$svc} ) {
+          printlog( 'rc', '1', $svc, $key, $_, $value ), $_->{$key} = $value for @_;
         } else {
           $svc{$svc}{rcsource} = $rcconf unless $svc{$svc};
-          printlog( 'rc','2', $svc, $key, $value ), $svc{$svc}{$key} = $value;       #, next if exists $svc{$svc};
+          printlog( 'rc', '2', $svc, $key, $value ), $svc{$svc}{$key} = $value;    #, next if exists $svc{$svc};
         }
       }
     }
@@ -850,7 +851,7 @@ prog()->{func} = sub {
     #proftpd: (accepting connections) (proftpd)
     #mc
     #sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1
-    #'screen -DRa                                                 
+    #'screen -DRa
     #[mysqld]
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/([^/]+) \(\S+\)$};
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
@@ -943,12 +944,12 @@ prog('check')->{func} = sub {
 
         if ($code) {
           local $_ = $resp->code();
-          printlog( 'http', "code recv [$_](",$resp->message(),"), want [$code]", ref $code );
+          printlog( 'http', "code recv [$_](", $resp->message(), "), want [$code]", ref $code );
           my $code_ok;
           if   ( ref $code eq 'Regexp' ) { ++$code_ok if $_ =~ $code; }
           else                           { ++$code_ok if $_ =~ /$code/; }
           unless ($code_ok) {
-            printlog( 'warn', 'no good http code',$get,":",$resp->message(),'recv', $_, ', want ', $code, "[$code_ok]" );
+            printlog( 'warn', 'no good http code', $get, ":", $resp->message(), 'recv', $_, ', want ', $code, "[$code_ok]" );
             $svc{$s}{action} ||= 'restart';
             last;
           }
