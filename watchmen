@@ -630,6 +630,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   routed         => n,
   totd           => n,
   munin_node => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
+  minidlna       => n,
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
