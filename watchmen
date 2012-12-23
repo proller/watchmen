@@ -544,6 +544,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
 }
 %svc = (
   sshd      => n( tcp => 22, no_stop => 1 ),
+  openssh   => n( process => 'sshd', no_stop => 1 ),
   watchdogd => n,
   devd => n( no_stop => 1, ),
   #moused  => n( no_stop => 1, ), #started and stopped by devd
@@ -631,6 +632,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   totd           => n,
   munin_node => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
   minidlna       => n,
+  miniupnpd      => n,
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
@@ -848,19 +850,22 @@ prog()->{func} = sub {
       $ps->{time} = $1 * 60 + $2 + "0$3";
       #printlog('dev', 'time', $ps->{TIME}, $ps->{time});
     }
+    my $starter = q{(?:-?\S*perl|(?:ba)?sh)};
+    #/usr/bin/perl -wT /usr/local/sbin/munin-node (perl5.16.2)
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^$starter(?: -\S+)* \S*/([^/]+) \(\S+\)$};
     #/usr/local/sbin/munin-node (perl5.14.2)
-    #proftpd: (accepting connections) (proftpd)
-    #mc
-    #sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1
-    #'screen -DRa
-    #[mysqld]
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/([^/]+) \(\S+\)$};
+    #proftpd: (accepting connections) (proftpd)
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
-    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^([^\s/\\\[\]]+)};
+    #mc
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^$starter?([^\s/\\\[\]]+)};
+    #sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/(\S+)};
+    #[mysqld]
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\[([^\]]+)\]$};
   }
   #printlog 'newps', Dumper \%ps;
+  #printlog 'com-prc', $_->{process}, ":\t", $_->{COMMAND} for values %ps;
 };
 prog('check')->{func} = sub {
   my ($check) = @_;
