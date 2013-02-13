@@ -623,7 +623,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   ),
   avahi_daemon   => n( process => 'avahi-daemon',   rcdname => 'avahi-daemon' ),     # udp=>5353
   avahi_dnsconfd => n( process => 'avahi-dnsconfd', rcdname => 'avahi-dnsconfd' ),
-  openttd        => n( tcp     => 3979 ),
+  openttd        => n( tcp     => 3979, group => 'games' ),
   freenet6       => n( process => 'gw6c' ),
   rtadvd         => n,
   rtsold         => n,
@@ -633,6 +633,8 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   munin_node => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
   minidlna       => n,
   miniupnpd      => n,
+  hald           => n,
+  minetest       => n( process => 'minetestserver', udp => 30000, group => 'games', ),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
