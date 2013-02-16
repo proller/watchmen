@@ -576,6 +576,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   apache2               => n( process    => 'httpd',    http    => 80 ),
   apache22              => n( process    => 'httpd',    http    => 80 ),           #tcp=>80 #https=>443
   nginx     => n( http    => 80 ),
+  fcgiwrap  => n,
   memcached => n,
   redis     => n( process => 'redis-server', ),
   rsyncd       => n( process => 'rsync',        tcp     => 873 ),
@@ -859,8 +860,8 @@ prog()->{func} = sub {
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/([^/]+) \(\S+\)$};
     #proftpd: (accepting connections) (proftpd)
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{.*\((.+?)\)$};
-    #mc
-    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^$starter?([^\s/\\\[\]]+)};
+    #./minetestserver
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^$starter?(?:\S*?/)?([^\s/\\\[\]]+)$};
     #sh -c myisamchk -v --recover --force /var/db/mysql/t/*.MYI 2>&1
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/(\S+)};
     #[mysqld]
