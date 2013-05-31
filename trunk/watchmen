@@ -575,6 +575,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   apache                => n( process    => 'httpd',    http    => 80 ),
   apache2               => n( process    => 'httpd',    http    => 80 ),
   apache22              => n( process    => 'httpd',    http    => 80 ),           #tcp=>80 #https=>443
+  apache24              => n( process    => 'httpd',    http    => 80 ),           #tcp=>80 #https=>443
   nginx     => n( http    => 80 ),
   fcgiwrap  => n,
   memcached => n,
