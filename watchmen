@@ -856,7 +856,8 @@ prog()->{func} = sub {
     }
     my $starter = q{(?:-?\S*perl|(?:ba)?sh)};
     #/usr/bin/perl -wT /usr/local/sbin/munin-node (perl5.16.2)
-    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^$starter(?: -\S+)* \S*/([^/]+) \(\S+\)$};
+    #/usr/local/bin/perl -wT /usr/local/sbin/munin-node
+    $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^$starter(?: -\S+)* \S*/([^/]+)(?: \(\S+\))?$};
     #/usr/local/sbin/munin-node (perl5.14.2)
     $ps->{process} ||= $1, next if $ps->{COMMAND} =~ m{^\S*/([^/]+) \(\S+\)$};
     #proftpd: (accepting connections) (proftpd)
