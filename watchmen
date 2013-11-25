@@ -635,6 +635,8 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   munin_node => n( process => 'munin-node', rcdname => 'munin-node', tcp => 4949 ),
   minidlna       => n( process => 'minidlnad'),
   miniupnpd      => n,
+  miniupnpc      => n,
+  minissdpd      => n,
   hald           => n,
   minetest       => n( process => 'minetestserver', udp => 30000, group => 'games', ),
 );
