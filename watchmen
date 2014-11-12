@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl 
 #$Id$ $URL$ Oleg Alexeenkov <proler@gmail.com>
 # perltidy -b -i=2 -ce -l=128 -nbbc -sob -otr -sot *.pm *.pl *.pl.dist *.cgi *.t *.PL watchmen
 package App::watchmen;
@@ -639,6 +639,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   minissdpd      => n,
   hald           => n,
   minetest       => n( process => 'minetestserver', udp => 30000, group => 'games', ),
+  freeminer      => n( process => 'freeminerserver', udp => 30000, group => 'games', ),
 );
 if ( $config{config} ) {
   ( do $config{config} and !$@ and ++$config{config_run} )
