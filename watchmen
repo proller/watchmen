@@ -582,6 +582,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   redis     => n( process => 'redis-server', ),
   rsyncd       => n( process => 'rsync',        tcp     => 873 ),
   postgresql   => n( process => 'postgres',     tcp     => 5432 ),
+  mongod      => n( tcp     => 27017 ),
   mysql        => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, ),   # restart => $config{restart_hard},
   sphinxsearch => n( process => 'searchd',      tcp     => 9312 ),                           #9306  , action_timeout_stop=>5
   svnserve     => n( process => 'svnserve.bin', tcp     => 3690 ),
