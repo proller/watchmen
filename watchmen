@@ -557,6 +557,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   named   => n( udp => 53, tcp => 53 ),
   dhcpd   => n( rcdname => 'isc-dhcpd', udp => 67 ),
   rtadvd  => n,
+  radvd  => n,
   ntpd    => n,
   rpcbind => n,
   #nfsd      => n( rcdname => 'nfs_server', ),
@@ -585,7 +586,7 @@ for ( ( $root_path =~ /watch/i ? "${root_path}watchmen.conf" : () ), "/usr/local
   mongod      => n( tcp     => 27017 ),
   mysql        => n( process => 'mysqld',       rcdname => 'mysql-server', tcp => 3306, ),   # restart => $config{restart_hard},
   sphinxsearch => n( process => 'searchd',      tcp     => 9312 ),                           #9306  , action_timeout_stop=>5
-  svnserve     => n( process => 'svnserve.bin', tcp     => 3690 ),
+  svnserve     => n( tcp     => 3690 ),
   proftpd => n( tcp   => 21 ),
   nmbd    => n( group => 'samba', rcdname => 'samba', rcconfname => 'samba', udp => [ 137, 138 ], force_restart => 1, ),
   smbd    => n( group => 'samba', rcdname => 'samba', rcconfname => 'samba', tcp => [ 139, 445 ], force_restart => 1, ),
