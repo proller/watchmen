@@ -160,7 +160,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-our $VERSION = '0.08';    # . '.' . ( split( ' ', '$Revision$' ) )[1];
+our $VERSION = '0.09';    # . '.' . ( split( ' ', '$Revision$' ) )[1];
 use IO::Socket;
 use Time::HiRes qw(time sleep);
 use POSIX qw(strftime);
